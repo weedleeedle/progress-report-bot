@@ -108,7 +108,7 @@ These commands all require administrator privledges or similar.
 `/setrank` creates a new rank or edits an existing rank and associates it with the minimum word count needed for that role.
 So the first and lowest role would be `/setrank Role 0`. The upper bound for this role would be determined by the next role's wordcount threshold.
 
-`<role>` is *probably* expected to be an actual Discord role, but I think it will also support just any string. I'm not 100% on if Discord and/or poise will let you submit a role as an argument.
+`<role>` is a Discord role as an argument.
 
 This command is used for both adding and editing a rank. If `<role>` exists, it will be updated with the new specified threshold. If it doesn't exist, it will be created.
 
@@ -118,7 +118,7 @@ This command is used for both adding and editing a rank. If `<role>` exists, it 
 /removerank <role>
 ```
 
-`/removerank` removes an existing rank. As with `/setrank`, `<role>` can be a Discord role or a generic string identifier. In either case, the same name must be used when both adding the role and removing it.
+`/removerank` removes an existing rank. As with `/setrank`, `<role>` is a Discord role. In either case, the same name must be used when both adding the role and removing it.
 
 ### Remove All Ranks
 
@@ -188,7 +188,7 @@ This table tracks the user's total word count. When updating ranks, this is the 
 
 |guild_id|user_id|max_word_count|current_word_count|current_rank|
 |--------|-------|--------------|------------------|------------|
-|integer |integer|integer       |integer           |Discord role or string|
+|integer |integer|integer       |integer           |role id|
 
 The `max_word_count` is used when considering updating ranks. Even if the `current_word_count` is less than the `max_word_count`, the user won't be demoted. But they won't be promoted either until their `current_word_count` exceeds their `max_word_count`. 
 
@@ -209,6 +209,6 @@ and is stored as such.
 
 |guild_id|rank_name|threshold|
 |--------|---------|---------|
-|integer |string or role id|integer|
+|integer |role id|integer|
 
 Tracks the thresholds between ranks. When `/updateranks` is called, the bot will check this table and the user table to see who has reached a next rank.
