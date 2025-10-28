@@ -39,7 +39,6 @@ impl FromStr for WordCountArgument
     }
 }
 
-
 impl WordCountArgument
 {
     /// Converts a relative or total word count into only a total word count.
