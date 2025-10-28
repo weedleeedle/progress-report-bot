@@ -6,14 +6,12 @@ is a chance this bot will become a full refactor of FrankieBot, I'm setting out 
 only the progress reports module. Other replacements might take the form of other Discord bots,
 or just extensions of this bot.
 
-I currently don't have a name in mind for the new bot. Something that incorporates "PR" like Prancer, idk.
-
-I'll just call it PRBot for now.
+His name will be Presley.
 
 # Command Format
 
-We'll use the newer slash command format for PRBot. As we've discussed, slash commands have some limitations
-but none of those should affect PRBot.
+We'll use the newer slash command format for Presley. As we've discussed, slash commands have some limitations
+but none of those should affect Presley.
 
 Commands include:
 - Submitting new progress reports (/report, allowed for anyone)
@@ -24,7 +22,7 @@ Commands include:
 - Updating user ranks (/updateranks, only allowed for mods/admins)
     - In theory we can limit this command to only be called by people who already have the permission to update ranks,
       but we could limit this further)
-
+    - This command is mostly obsolete since Presley should update roles automatically, but we might want to keep an option to "force" updates.
 
 **Setup Commands**
 - Initial rank setup (/setrank)
@@ -32,7 +30,6 @@ Commands include:
 - Remove a rank (/removerank)
 - Remove all ranks (/clearranks)
 - Set PR channel (for announcements and also submission reports) (/setprchannel)
-- Set PR role ping (/setprremindrole)
 
 ## Syntax Guide
 
@@ -57,7 +54,7 @@ relative := '+' | '-'
 ```
 
 If a user submits a relative word count but they've never submitted a report before, total and relative word count are the same.
-PRBot will treat it as if they had 0 words before.
+Presley will treat it as if they had 0 words before.
 
 Subtracting a relative wordcount is supported (though I am not sure if that is something you want). 
 This will reduce the user's total word count but will NOT reduce their rank. A user CANNOT be demoted after they've reached a certain rank.
@@ -89,6 +86,8 @@ It doesn't seem like most people use this command with arguments? But it can be 
 ```
 /updateranks
 ```
+
+*Current plan is to implement automatic promotions if at all possible, rendering this command obsolete.*
 
 `/updateranks` behaves exactly as it did before, returning which users have increased their wordcount to the next rank.
 
@@ -134,17 +133,12 @@ This command is used for both adding and editing a rank. If `<role>` exists, it 
 /setprchannel <channel>
 ```
 
+*This command may be obsolete. Presley won't have any announcements since we don't use windows anymore. We might want to limit progress reports to a single channel though*
+
 `/setprchannel` sets the channel to use for submissions and announcements. 
 FrankieBot allows for two different channels for submissions and announcements. 
 I currently only have the one for both of them, but this could be split up into two commands, with
 `/setprchannel` for submission reports and `/setannouncechannel` for PR window announcements or whatever
-
-### Set PR Role
-```
-/setprremindrole <role>
-```
-
-`/setprremindrole` sets the role to ping when a PR window opens.
 
 # Possible Workflow Changes
 
@@ -152,11 +146,13 @@ In the past, we've discussed a few possible changes to how FrankieBot does progr
 
 ## Removing PR Windows
 
-We've discussed removing PR windows and instead allowing users to submit reports whenever they want. I don't have any strong arguments for or against PR report windows, but it does make my design a lot easier and requires fewer commands to be registered if we just don't even bother with windows, and there's not a whole lot of reasons to keep them I think? If users just submit reports whenever they want, you can just trigger an update whenever you're looking at updating ranks and it will return whatever the user's rank is at the time.
+~~We've discussed removing PR windows and instead allowing users to submit reports whenever they want. I don't have any strong arguments for or against PR report windows, but it does make my design a lot easier and requires fewer commands to be registered if we just don't even bother with windows, and there's not a whole lot of reasons to keep them I think? If users just submit reports whenever they want, you can just trigger an update whenever you're looking at updating ranks and it will return whatever the user's rank is at the time.~~
+
+*We've decided that PR windows aren't necessary. Users can submit progress reports whenever they want.*
 
 ## Automating Updating Ranks
 
-It might be possible to give the bot permissions to assign ranks automatically. Personally, I've been giving the thought of automating the PBW system but I'm thinking that I won't, since it's an opportunity for me to contribute and I think it's a nice human touch. It would also insulate the cartel from any bugs if PRBot implodes, it won't like... I don't know, delete everyone's roles lol. But I really don't think that would happen, and if PRBot can calculate people's ranks there isn't too much reason why it couldn't also assign them if you wanted.
+It might be possible to give the bot permissions to assign ranks automatically. Personally, I've been giving the thought of automating the PBW system but I'm thinking that I won't, since it's an opportunity for me to contribute and I think it's a nice human touch. It would also insulate the cartel from any bugs if Presley implodes, it won't like... I don't know, delete everyone's roles lol. But I really don't think that would happen, and if Presley can calculate people's ranks there isn't too much reason why it couldn't also assign them if you wanted.
 
 # Excluded Commands
 
@@ -180,7 +176,9 @@ This is a more low-level technical discussion, so feel free to skip this if you 
 
 A database system like PostgreSQL is a lot beefier, which offers some obvious advantages in terms of speed, but it also makes it a lot more... opaque I guess?
 
-One thing I changed with a PostgreSQL system is that multiple databases is discouraged, so instead of every guild/server having its own database, the PostgreSQL database had one database for all guilds it was in, and instead included the guild ID as a filter/key to identify which reports belong to which servers. This changes nothing about the front-end, it works the same either way. And of course, it's unlikely that PRBot will end up in multiple servers anyways, but if it does, those are two ways of working with it.
+One thing I changed with a PostgreSQL system is that multiple databases is discouraged, so instead of every guild/server having its own database, the PostgreSQL database had one database for all guilds it was in, and instead included the guild ID as a filter/key to identify which reports belong to which servers. This changes nothing about the front-end, it works the same either way. And of course, it's unlikely that Presley will end up in multiple servers anyways, but if it does, those are two ways of working with it.
+
+We won't worry about migrating progress reports from Frankie to Presley.
 
 Here's the tables I'm thinking of using.
 
@@ -214,7 +212,3 @@ and is stored as such.
 |integer |string or role id|integer|
 
 Tracks the thresholds between ranks. When `/updateranks` is called, the bot will check this table and the user table to see who has reached a next rank.
-
-
-
-
