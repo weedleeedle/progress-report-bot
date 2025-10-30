@@ -48,7 +48,13 @@ async fn add_rank(ctx: Context<'_>, role: serenity::Role, minimum_word_count: u3
     let mut ranks = RankList::load(pool, guild_id).await?;
 
     let new_rank = Rank::new(guild_id, role.id, minimum_word_count);
-    ranks.add_rank(new_rank);
+    let result = ranks.add_rank(new_rank);
+    if let Err(err) = result
+    {
+        let guild = ctx.partial_guild().await.unwrap();
+        let discord_error = err.to_discord_error(&guild).expect("Unable to get the role from the guild");
+        return Err(discord_error.into())
+    }
     ranks.save(pool).await?;
 
     ctx.say(format!("Added rank {}!", role)).await?;

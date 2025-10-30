@@ -192,6 +192,24 @@ pub enum AddRankError
     RankExistsWithWordCount(Rank),
 }
 
+#[derive(Debug, Error)]
+pub enum AddRankDiscordError
+{
+    #[error("There already exists a role {0} with that word count")]
+    RankExistsWithWordCount(serenity::Role)
+}
+
+impl AddRankError
+{
+    pub fn to_discord_error<'a, G: GuildLike<serenity::Role>>(&self, get_role_object: &'a G) -> Option<AddRankDiscordError>
+    {
+        match self
+        {
+            AddRankError::RankExistsWithWordCount(rank) => Some(AddRankDiscordError::RankExistsWithWordCount(rank.to_rank(get_role_object)?.role.clone()))
+        }
+    }
+}
+
 impl RankList
 {
     /// Adds a rank to the rank list. If a rank already exists with the same minimum_word_count, it is replaced with the new one.
