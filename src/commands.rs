@@ -30,7 +30,7 @@ type Context<'a> = poise::Context<'a, crate::core::GlobalCommandData, anyhow::Er
 pub fn get_commands() -> Vec<Command<crate::core::GlobalCommandData, Error>>
 {
     // Release commands go here
-    let mut commands = vec![add_rank(), list_ranks()];
+    let mut commands = vec![set_rank(), list_ranks()];
     // Add debug commands if in debug mode
     if cfg!(debug_assertions)
     {
@@ -39,8 +39,8 @@ pub fn get_commands() -> Vec<Command<crate::core::GlobalCommandData, Error>>
     return commands;
 }
 
-#[poise::command(slash_command, guild_only)]
-async fn add_rank(ctx: Context<'_>, role: serenity::Role, minimum_word_count: u32) -> Result<()>
+#[poise::command(slash_command, guild_only, default_member_permissions = "ADMINISTRATOR")]
+async fn set_rank(ctx: Context<'_>, role: serenity::Role, minimum_word_count: u32) -> Result<()>
 {
     let pool = ctx.data().get_pool();
     let guild_id = ctx.guild_id().ok_or(anyhow!("This command can only be run in a server!"))?;
@@ -74,7 +74,7 @@ async fn list_ranks(ctx: Context<'_>) -> Result<()>
     let ranks: Vec<DiscordRank<Role>> = ranks.iter().map(|x| x.to_rank(&guild).unwrap()).collect();
 
     for rank in ranks
-    {
+   {
         response.push_str(&format!("{}", rank));
     }
 
@@ -100,7 +100,7 @@ pub mod debug {
     ///
     pub fn get_debug_commands() -> Vec<Command<crate::core::GlobalCommandData, Error>>
     {
-        vec![ping(), register_commands()]
+        vec![ping(), register_commands(), unregister_commands()]
     }
     
     /// says "Pong!"
@@ -123,11 +123,20 @@ pub mod debug {
     /// It is marked as a prefix command so it works without using Discord's slash
     /// command functionality (though it does also work as a slash command if the commands have
     /// previously been registered to the server.
-    #[poise::command(slash_command, prefix_command)]
+    #[poise::command(slash_command, prefix_command, guild_only)]
     async fn register_commands(ctx: Context<'_>) -> Result<()>
     {
         poise::builtins::register_in_guild(ctx, &ctx.framework().options().commands, ctx.guild_id().unwrap()).await?;
         ctx.say("Registered commands").await?;
+        Ok(())
+    }
+
+    #[poise::command(slash_command, prefix_command, guild_only)]
+    async fn unregister_commands(ctx: Context<'_>) -> Result<()>
+    {
+        let guild_id = ctx.guild_id().ok_or_else(|| anyhow::anyhow!("Can't run this command in DMs!"))?;
+        guild_id.set_commands(ctx, vec![]).await?;
+        ctx.say("Unregistered commands").await?;
         Ok(())
     }
 }

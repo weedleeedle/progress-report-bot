@@ -18,7 +18,7 @@ async fn main() -> Result<()>
     }
 
     let variables = core::Variables::load_variables()?;
-    let intents = serenity::GatewayIntents::non_privileged();
+    let intents = serenity::GatewayIntents::non_privileged() & serenity::GatewayIntents::MESSAGE_CONTENT;
 
     let global_command_data = core::GlobalCommandDataBuilder::new()
                                 .max_connections(variables.max_connections())
@@ -28,6 +28,10 @@ async fn main() -> Result<()>
     let framework = poise::Framework::<core::GlobalCommandData, anyhow::Error>::builder() 
         .options(poise::FrameworkOptions {
             commands: commands::get_commands(),
+            prefix_options: poise::PrefixFrameworkOptions {
+                prefix: Some(".".to_string()),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .setup(move |ctx, _ready, framework| {
