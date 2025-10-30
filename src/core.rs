@@ -62,13 +62,19 @@ impl GlobalCommandData
 ///
 ///
 /// Expected use case is something like the following:
-/// ```
+/// ```no_run
+/// # use progress_report_bot::core::GlobalCommandDataBuilder;
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), anyhow::Error> {
 /// let builder = GlobalCommandDataBuilder::new();
 /// let global_command_data = builder
 ///     .max_connections(5)
-///     .database_url("postgres://user:password@localhost/test")
-///     .build()?
-///
+///     .database_url("postgres://user:password@localhost/test".to_string())
+///     .build()
+///     .await?;
+/// # Ok(())
+/// # }
+/// ```
 pub struct GlobalCommandDataBuilder
 {
     max_connections: u32,
@@ -171,7 +177,9 @@ impl Variables
     /// # Examples
     ///
     /// ```
-    /// # use crate::core::Variables;
+    /// # use progress_report_bot::core::Variables;
+    /// # use progress_report_bot::core::LoadVariablesError;
+    /// # dotenvy::dotenv();
     /// let variables = Variables::load_variables()?;
     /// # Ok::<(), LoadVariablesError>(())
     /// ```

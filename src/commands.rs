@@ -8,6 +8,7 @@ use poise::Command;
 use anyhow::Error;
 use anyhow::Result;
 
+use crate::rank::DiscordRank;
 use crate::rank::Rank;
 use crate::rank::RankId;
 use crate::rank::RankList;
@@ -46,8 +47,8 @@ async fn add_rank(ctx: Context<'_>, role: serenity::Role, minimum_word_count: u3
 
     let mut ranks = RankList::load(pool, guild_id).await?;
 
-    let new_rank = RankId::new(guild_id, role.id, minimum_word_count);
-    ranks.add_rank(&new_rank);
+    let new_rank = Rank::new(guild_id, role.id, minimum_word_count);
+    ranks.add_rank(new_rank);
     ranks.save(pool).await?;
 
     ctx.say(format!("Added rank {}!", role)).await?;
@@ -64,11 +65,11 @@ async fn list_ranks(ctx: Context<'_>) -> Result<()>
     let guild = ctx.partial_guild().await.unwrap();
 
     let mut response = String::new();
-    let ranks: Vec<Rank<Role>> = ranks.iter().map(|x| x.to_rank(&guild).unwrap()).collect();
+    let ranks: Vec<DiscordRank<Role>> = ranks.iter().map(|x| x.to_rank(&guild).unwrap()).collect();
 
     for rank in ranks
     {
-        response.push_str(&format!("Rank {}: {}\n", rank.role(), rank.minimum_word_count()));
+        response.push_str(&format!("{}", rank));
     }
 
     ctx.say(response).await?;
