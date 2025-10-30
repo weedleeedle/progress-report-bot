@@ -2,7 +2,6 @@
 //! The word count is the minimum needed to have that rank. So the first and lowest rank should
 //! have a word count of 0, so on and so forth.
 
-use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
@@ -12,6 +11,7 @@ use poise::serenity_prelude::GuildId;
 use poise::serenity_prelude::RoleId;
 use poise::serenity_prelude as serenity;
 use sqlx::PgPool;
+use thiserror::Error;
 
 use crate::mock::GuildLike;
 use crate::mock::RoleLike;
@@ -163,21 +163,26 @@ pub struct RankList
 {
     // GuildId can be None only if we haven't added any ranks yet.
     guild_id: Option<serenity::GuildId>,
-    #[getset(get)]
-    // Todo, check for equal keys with only ID ig.
-    ranks: BTreeSet<RankId>,
+    // Ensures that we don't get a duplicate key (guild_id + role_id)
+    rank_set: HashSet<RankId>,
+    // Sorts ranks in order of their value (minimum_word_count)
+    rank_order: BTreeSet<RankId>,
     // When we remove a rank, we add it to this list so that the next time we save we remove these
     // records.
-    // We use a cell since we're using this as a cache.
-    // We can modify this in immutable operations such as saving, and it doesn't actually change
-    // the state of the object
     pending_removals: HashSet<RankId>,
+}
+
+#[derive(Debug, Error)]
+pub enum AddRankError
+{
+    #[error("There already exists a rank {0:?} with that word count")]
+    RankExistsWithWordCount(RankId),
 }
 
 impl RankList
 {
     /// Adds a rank to the rank list. If a rank already exists with the same minimum_word_count, it is replaced with the new one.
-    pub fn add_rank(&mut self, rank_id: &RankId)
+    pub fn add_rank(&mut self, rank_id: &RankId) -> Result<(), AddRankError>
     {
         if let Some(guild_id) = self.guild_id
         {
@@ -190,12 +195,33 @@ impl RankList
         {
             self.guild_id = Some(rank_id.guild_id);
         }
-        self.ranks.replace(*rank_id);
+
+        // Returns true if we have any *equal* element (i.e any rank with the same minimum_word_count)
+        // Since we don't know how we want to handle this, we return an error.
+        if self.rank_order.contains(&rank_id)
+        {
+            let old_rank = self.rank_order.get(&rank_id).unwrap();
+            return Err(AddRankError::RankExistsWithWordCount(*old_rank));
+        }
+
+        // Otherwise, we check if we have the *rank* assigned already, and if so, reassign it.
+        if self.rank_set.contains(&rank_id)
+        {
+            let old_rank = self.rank_set.get(&rank_id).unwrap();
+            // Remove the old value for the rank.
+            self.rank_order.remove(old_rank);
+        }
+
+        self.rank_set.replace(*rank_id);
+        self.rank_order.insert(*rank_id);
+
         // Check to see if we were going to remove this rank. If so, we want to put it back.
         if self.pending_removals.contains(rank_id)
         {
             self.pending_removals.remove(rank_id);
         }
+
+        Ok(())
     }
 
     pub fn add_ranks(&mut self, rank_ids: &[RankId])
@@ -210,19 +236,21 @@ impl RankList
     /// We just use the guild_id and role_id.
     pub fn remove_rank(&mut self, rank_id: &RankId)
     {
-        let rank = self.ranks.take(rank_id);
+        let rank = self.rank_set.take(rank_id);
+
         // If we found the rank, add it to pending removals.
-        if let Some(rid) = rank
+        if let Some(rank) = rank
         {
-            self.pending_removals.insert(rid);
+            self.rank_order.remove(&rank);
+            self.pending_removals.insert(rank);
         }
     }
 
     /// Gets the highest rank that has a lower minimum_word_count than the provided word_count.
     pub fn get_rank_for_word_count(&self, word_count: u32) -> RankId
     {
-        let mut highest_rank = self.ranks.first().expect("Expected there to be at least one rank!");
-        for rank in self.ranks.iter()
+        let mut highest_rank = self.rank_order.first().expect("Expected there to be at least one rank!");
+        for rank in self.rank_order.iter()
         {
             // We can stop iterating as soon as we find a rank that is higher than our word count,
             // since the set is ordered.
@@ -254,7 +282,7 @@ impl RankList
     /// Consumes this [RankList] and saves it to the database
     pub async fn save(self, db: &PgPool) -> anyhow::Result<()>
     {
-        for rank in self.ranks.iter()
+        for rank in self.rank_set.iter()
         {
             let guild_id: i64 = rank.guild_id.into();
             let role_id: i64 = rank.role_id.into();
@@ -282,18 +310,22 @@ impl RankList
 
     pub fn iter(&self) -> std::collections::btree_set::Iter<'_, RankId>
     {
-        self.ranks.iter()
+        self.rank_order.iter()
     }
 }
 
 impl From<RankId> for RankList
 {
     fn from(value: RankId) -> Self {
-        let mut ranks = BTreeSet::<RankId>::new();
-        ranks.insert(value);
+        // We know this function is infallible since there can't be any duplicates.
+        let mut rank_order = BTreeSet::<RankId>::new();
+        let mut rank_set = HashSet::<RankId>::new();
+        rank_order.insert(value);
+        rank_set.insert(value);
         Self {
             guild_id: Some(value.guild_id),
-            ranks,
+            rank_order,
+            rank_set,
             pending_removals: HashSet::new(),
         }
     }
@@ -304,23 +336,30 @@ impl TryFrom<&[RankId]> for RankList
     type Error = anyhow::Error;
 
     fn try_from(value: &[RankId]) -> anyhow::Result<Self> {
-        let mut ranks = BTreeSet::<RankId>::new();
-        let guild_id = value.first().map(|x| x.guild_id);
-        for rank in value.iter()
+        let mut iter = value.iter();
+        let first = iter.next();
+
+        if let Some(rank_id) = first
         {
-            // Will be Some if we are looping through this.
-            let guild_id = guild_id.unwrap();
-            if rank.guild_id != guild_id
+            // Use the first element to create the rank list
+            let mut rank_list: RankList = (*rank_id).into();
+            // Then we iterate over the rest of the list and add them!
+            for rank in iter
             {
-                anyhow::bail!("Passed a rank to a rank_list constructor with a different guild_id than previous ranks.");
+                rank_list.add_rank(rank)?;
             }
-            ranks.replace(*rank);
+            Ok(rank_list)
         }
-        Ok(Self {
-            guild_id,
-            ranks,
-            pending_removals: HashSet::new(),
-        })
+        // If the iterator is empty we just make a new empty RankList
+        else
+        {
+            Ok(RankList {
+                guild_id: None,
+                rank_set: HashSet::new(),
+                rank_order: BTreeSet::new(),
+                pending_removals: HashSet::new(),
+            })
+        }
     }
 }
 
@@ -493,9 +532,57 @@ mod tests
         };
         let mut rank_list: RankList = rank.into();
         rank_list.remove_rank(&rank);
-        rank_list.add_rank(&rank);
-        assert_eq!(rank_list.ranks.len(), 1);
+        rank_list.add_rank(&rank).unwrap();
+        assert_eq!(rank_list.rank_set.len(), 1);
+        assert_eq!(rank_list.rank_order.len(), 1);
         assert!(rank_list.pending_removals.is_empty())
+    }
+    
+    #[test]
+    pub fn add_rank_then_add_new_rank_with_same_word_count_fails()
+    {
+        let first_rank = RankId {
+            guild_id: 1.into(),
+            role_id: 1.into(),
+            minimum_word_count: 123,
+        };
+
+        let second_rank = RankId {
+            guild_id: 1.into(),
+            role_id: 2.into(),
+            minimum_word_count: 123,
+        };
+
+        let mut rank_list: RankList = first_rank.into();
+        let result = rank_list.add_rank(&second_rank);
+        assert!(result.is_err());
+        assert_eq!(rank_list.rank_set.len(), 1);
+        assert_eq!(rank_list.rank_order.len(), 1);
+        assert_eq!(rank_list.rank_set.iter().nth(0).unwrap().role_id, RoleId::new(1));
+        assert_eq!(rank_list.rank_order.iter().nth(0).unwrap().role_id, RoleId::new(1));
+    }
+
+    #[test]
+    pub fn add_rank_then_add_rank_again_with_new_wc_updates()
+    {
+        let first_rank = RankId {
+            guild_id: 1.into(),
+            role_id: 1.into(),
+            minimum_word_count: 100,
+        };
+
+        let second_rank = RankId {
+            guild_id: 1.into(),
+            role_id: 1.into(),
+            minimum_word_count: 200,
+        };
+
+        let mut rank_list: RankList = first_rank.into();
+        rank_list.add_rank(&second_rank).unwrap();
+        assert_eq!(rank_list.rank_set.len(), 1);
+        assert_eq!(rank_list.rank_order.len(), 1);
+        assert_eq!(rank_list.rank_set.iter().nth(0).unwrap().minimum_word_count, 200);
+        assert_eq!(rank_list.rank_order.iter().nth(0).unwrap().minimum_word_count, 200);
     }
     // Fuuuck we can't actually test saving for now... we really should mock PgPool or something...
 }
