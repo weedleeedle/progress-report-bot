@@ -85,6 +85,17 @@ impl TotalWordCount
     }
 }
 
+impl FromStr for TotalWordCount
+{
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let filtered_s: String = s.chars().filter(|x| *x != ',').collect();
+        let num: u32 = filtered_s.parse()?;
+        Ok(Self(num))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

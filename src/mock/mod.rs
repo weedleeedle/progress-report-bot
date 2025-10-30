@@ -32,6 +32,19 @@ impl GuildLike<serenity::Role> for serenity::Guild
     }
 }
 
+impl GuildLike<serenity::Role> for serenity::PartialGuild
+{
+    fn role(&self, role_id: serenity::RoleId) -> Option<&serenity::Role>
+    {
+        self.roles.get(&role_id)
+    }
+
+    fn id(&self) -> serenity::GuildId
+    {
+        self.id
+    }
+}
+
 /// This trait is used to mock [serenity::Role].
 /// It exposes functions that act like getters for Role information.
 pub trait RoleLike

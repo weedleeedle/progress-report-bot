@@ -8,6 +8,8 @@ use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
 use getset::Getters;
+use poise::serenity_prelude::GuildId;
+use poise::serenity_prelude::RoleId;
 use poise::serenity_prelude as serenity;
 use sqlx::PgPool;
 
@@ -39,6 +41,16 @@ impl<'a, T: RoleLike> Rank<'a, T>
             role,
             minimum_word_count
         }
+    }
+
+    pub fn role(&self) -> &T
+    {
+        self.role
+    }
+
+    pub fn minimum_word_count(&self) -> u32
+    {
+        self.minimum_word_count
     }
 }
 
@@ -99,6 +111,15 @@ impl RankId
 		get_role_object.role(self.role_id)
 			.map(|role| Rank::new(role, self.minimum_word_count))
     }
+
+    pub fn new(guild_id: GuildId, role_id: RoleId, minimum_word_count: u32) -> Self
+    {
+        Self {
+            guild_id,
+            role_id,
+            minimum_word_count
+        }
+    }
 }
 
 impl<R: RoleLike> From<Rank<'_, R>> for RankId
@@ -140,15 +161,17 @@ impl From<&DbRankId> for RankId
 #[derive(Getters)]
 pub struct RankList
 {
-    guild_id: serenity::GuildId,
+    // GuildId can be None only if we haven't added any ranks yet.
+    guild_id: Option<serenity::GuildId>,
     #[getset(get)]
+    // Todo, check for equal keys with only ID ig.
     ranks: BTreeSet<RankId>,
     // When we remove a rank, we add it to this list so that the next time we save we remove these
     // records.
     // We use a cell since we're using this as a cache.
     // We can modify this in immutable operations such as saving, and it doesn't actually change
     // the state of the object
-    pending_removals: RefCell<HashSet<RankId>>,
+    pending_removals: HashSet<RankId>,
 }
 
 impl RankList
@@ -156,11 +179,22 @@ impl RankList
     /// Adds a rank to the rank list. If a rank already exists with the same minimum_word_count, it is replaced with the new one.
     pub fn add_rank(&mut self, rank_id: &RankId)
     {
+        if let Some(guild_id) = self.guild_id
+        {
+            if guild_id != rank_id.guild_id
+            {
+                panic!("Provided guild_id did not match expected guild id!");
+            }
+        }
+        else
+        {
+            self.guild_id = Some(rank_id.guild_id);
+        }
         self.ranks.replace(*rank_id);
         // Check to see if we were going to remove this rank. If so, we want to put it back.
-        if self.pending_removals.borrow_mut().contains(rank_id)
+        if self.pending_removals.contains(rank_id)
         {
-            self.pending_removals.borrow_mut().remove(rank_id);
+            self.pending_removals.remove(rank_id);
         }
     }
 
@@ -180,7 +214,7 @@ impl RankList
         // If we found the rank, add it to pending removals.
         if let Some(rid) = rank
         {
-            self.pending_removals.borrow_mut().insert(rid);
+            self.pending_removals.insert(rid);
         }
     }
 
@@ -217,13 +251,15 @@ impl RankList
         ranks.as_slice().try_into()
     }
 
-    pub async fn save(&self, db: &PgPool) -> anyhow::Result<()>
+    /// Consumes this [RankList] and saves it to the database
+    pub async fn save(self, db: &PgPool) -> anyhow::Result<()>
     {
         for rank in self.ranks.iter()
         {
             let guild_id: i64 = rank.guild_id.into();
             let role_id: i64 = rank.role_id.into();
             let minimum_word_count: i32 = rank.minimum_word_count as i32;
+            println!("{}", minimum_word_count);
             sqlx::query!("INSERT INTO rank_table (guild_id, role_id, minimum_word_count) VALUES ($1, $2, $3) ON CONFLICT (guild_id, role_id) DO UPDATE SET minimum_word_count = excluded.minimum_word_count;", guild_id, role_id, minimum_word_count)
                 // Okay we don't actually need PgPool to be mutable. I... guess that makes sense?
                 // Idk.
@@ -232,9 +268,7 @@ impl RankList
         } 
 
         // Take the list of pending removals and clear out the cache 
-        let pending_removals = self.pending_removals.replace(HashSet::new());
-
-        for rank in pending_removals.iter()
+        for rank in self.pending_removals.iter()
         {
             let guild_id: i64 = rank.guild_id.into();
             let role_id: i64 = rank.role_id.into();
@@ -245,6 +279,11 @@ impl RankList
 
         Ok(())
     }
+
+    pub fn iter(&self) -> std::collections::btree_set::Iter<'_, RankId>
+    {
+        self.ranks.iter()
+    }
 }
 
 impl From<RankId> for RankList
@@ -253,9 +292,9 @@ impl From<RankId> for RankList
         let mut ranks = BTreeSet::<RankId>::new();
         ranks.insert(value);
         Self {
-            guild_id: value.guild_id,
+            guild_id: Some(value.guild_id),
             ranks,
-            pending_removals: RefCell::new(HashSet::new())
+            pending_removals: HashSet::new(),
         }
     }
 }
@@ -265,10 +304,12 @@ impl TryFrom<&[RankId]> for RankList
     type Error = anyhow::Error;
 
     fn try_from(value: &[RankId]) -> anyhow::Result<Self> {
-        let guild_id = value[0].guild_id;
         let mut ranks = BTreeSet::<RankId>::new();
+        let guild_id = value.first().map(|x| x.guild_id);
         for rank in value.iter()
         {
+            // Will be Some if we are looping through this.
+            let guild_id = guild_id.unwrap();
             if rank.guild_id != guild_id
             {
                 anyhow::bail!("Passed a rank to a rank_list constructor with a different guild_id than previous ranks.");
@@ -278,7 +319,7 @@ impl TryFrom<&[RankId]> for RankList
         Ok(Self {
             guild_id,
             ranks,
-            pending_removals: RefCell::new(HashSet::new())
+            pending_removals: HashSet::new(),
         })
     }
 }
@@ -437,9 +478,9 @@ mod tests
             minimum_word_count: 0,
         };
         let mut rank_list: RankList = first_rank.into();
-        assert!(rank_list.pending_removals.borrow().is_empty());
+        assert!(rank_list.pending_removals.is_empty());
         rank_list.remove_rank(&first_rank);
-        assert_eq!(rank_list.pending_removals.borrow().len(), 1);
+        assert_eq!(rank_list.pending_removals.len(), 1);
     }
 
     #[test]
@@ -454,7 +495,7 @@ mod tests
         rank_list.remove_rank(&rank);
         rank_list.add_rank(&rank);
         assert_eq!(rank_list.ranks.len(), 1);
-        assert!(rank_list.pending_removals.borrow().is_empty())
+        assert!(rank_list.pending_removals.is_empty())
     }
     // Fuuuck we can't actually test saving for now... we really should mock PgPool or something...
 }
