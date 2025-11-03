@@ -79,6 +79,11 @@ pub struct TotalWordCount(u32);
 
 impl TotalWordCount
 {
+    pub fn new(word_count: u32) -> Self
+    {
+        Self(word_count)
+    }
+
     pub fn word_count(&self) -> u32
     {
         self.0

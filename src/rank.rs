@@ -18,6 +18,7 @@ use thiserror::Error;
 
 use crate::mock::GuildLike;
 use crate::mock::RoleLike;
+use crate::word_count::TotalWordCount;
 
 /// A DiscordRank is effectively a reference to a [serenity::Role]
 /// with a minimum_word_count attached to it.
@@ -89,14 +90,14 @@ impl Rank
             })
     }
 
-    pub fn new(guild_id: GuildId, role_id: RoleId, minimum_word_count: u32) -> Self
+    pub fn new(guild_id: GuildId, role_id: RoleId, minimum_word_count: TotalWordCount) -> Self
     {
         Self {
             rank_id: RankId {
                 guild_id,
                 role_id
             },
-            minimum_word_count,
+            minimum_word_count: minimum_word_count.word_count()
         }
     }
 }
@@ -336,6 +337,21 @@ impl RankList
                 .await?;
             }
 
+        Ok(())
+    }
+
+    /// Associated command that clears all ranks from a guild's database.
+    ///
+    /// This probably just works out of the box but long term I'd like some way to enforce "hey
+    /// don't clear all the ranks (or honestly do any writing) while you have a reference to a
+    /// guild already in memory." Like some way of keeping the in-memory RankList and the database
+    /// in sync, you know? But maybe that's all taken care of automagically.
+    pub async fn clear_all_ranks(db: &PgPool, guild_id: GuildId) -> anyhow::Result<()>
+    {
+        let guild_id: i64 = guild_id.into();
+        sqlx::query!("DELETE FROM rank_table WHERE guild_id = $1;", guild_id)
+            .execute(db)
+            .await?;
         Ok(())
     }
 
