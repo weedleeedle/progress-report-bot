@@ -2,6 +2,8 @@
 
 use std::str::FromStr;
 
+use derive_more::{From, Into};
+
 /// Represents a parsed word count argument, which can either be relative or overall.
 /// If a number parsed by WordCountArgument starts with '+' or '-' it is treated as relative,
 /// otherwise it is treated as total
@@ -75,10 +77,13 @@ impl WordCountArgument
 }
 
 /// Represents a project's/user's total word count.
+#[derive(From, Into)]
 pub struct TotalWordCount(u32);
 
 impl TotalWordCount
 {
+    #[deprecated]
+    /// Use From<u32>::from() instead.
     pub fn new(word_count: u32) -> Self
     {
         Self(word_count)

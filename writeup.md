@@ -29,7 +29,7 @@ Commands include:
     - Used for adding OR changing ranks.
 - Remove a rank (/removerank)
 - Remove all ranks (/clearranks)
-- Set PR channel (for announcements and also submission reports) (/setprchannel)
+- Set PR channel (for announcements and also submission reports) (/setprchannel) (May not need this)
 
 ## Syntax Guide
 

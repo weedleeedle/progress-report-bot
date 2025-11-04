@@ -3,4 +3,5 @@ pub mod rank;
 pub mod mock;
 pub mod commands;
 pub mod core;
+pub mod report;
 

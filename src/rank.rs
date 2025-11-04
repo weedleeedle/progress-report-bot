@@ -151,10 +151,12 @@ impl PartialEq for RankHash
 impl Eq for RankHash {}
 
 /// A minimal version of [Rank] which uses [serenity::RoleId] instead of [serenity::Role]
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone, Getters)]
 pub struct RankId
 {
+    //#[getset(get = "pub")]
     guild_id: serenity::GuildId,
+    #[getset(get = "pub")]
     role_id: serenity::RoleId,
 }
 

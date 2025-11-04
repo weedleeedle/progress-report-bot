@@ -1,5 +1,7 @@
 //! Defines Discord slash commands
 
+use std::str::FromStr;
+
 use anyhow::anyhow;
 use poise::serenity_prelude::model::guild;
 use poise::serenity_prelude::Role;
@@ -12,7 +14,9 @@ use crate::rank::DiscordRank;
 use crate::rank::Rank;
 use crate::rank::RankId;
 use crate::rank::RankList;
+use crate::report::UserStats;
 use crate::word_count::TotalWordCount;
+use crate::word_count::WordCountArgument;
 
 type Context<'a> = poise::Context<'a, crate::core::GlobalCommandData, anyhow::Error>;
 
@@ -30,7 +34,7 @@ type Context<'a> = poise::Context<'a, crate::core::GlobalCommandData, anyhow::Er
 pub fn get_commands() -> Vec<Command<crate::core::GlobalCommandData, Error>>
 {
     // Release commands go here
-    let mut commands = vec![set_rank(), list_ranks(), clear_ranks()];
+    let mut commands = vec![set_rank(), list_ranks(), clear_ranks(), report()];
     // Add debug commands if in debug mode
     if cfg!(debug_assertions)
     {
@@ -106,6 +110,32 @@ async fn clear_ranks(ctx: Context<'_>) -> Result<()>
     Ok(())
 }
 
+/// Submits a progress report.
+///
+/// A report can be submitted as a total word count (without a prefix before the number) 
+/// or a relative word count (with a + or - before the word count, e.g +300, -150).
+///
+/// Reducing your project word count will never demote you.
+#[poise::command(slash_command, guild_only)]
+async fn report(ctx: Context<'_>, word_count: String) -> Result<()>
+{
+    let guild_id = ctx.guild_id().ok_or(anyhow!("This command can only be run in a server!"))?;
+    let user_id = ctx.author().id;
+    let db = ctx.data().get_pool();
+    let word_count = WordCountArgument::from_str(&word_count)?;
+
+    let rank_list = RankList::load(db, guild_id).await?;
+    let user_stats = UserStats::load(db, guild_id, user_id).await?;
+    let mut user_stats = user_stats.unwrap_or_else(|| UserStats::new(guild_id, user_id, &rank_list));
+    let updated_rank = user_stats.update_word_count(&rank_list, word_count);
+    user_stats.save(db).await?;
+    match updated_rank 
+    {
+        true => ctx.say("This will update your rank some day!").await,
+        false => ctx.say("Progress report submitted!").await,
+    }?;
+    Ok(())
+}
 
 #[cfg(debug_assertions)]
 pub mod debug {
