@@ -4,9 +4,98 @@
 use poise::serenity_prelude as serenity;
 use sqlx::PgPool;
 use anyhow::Result;
+use sqlx::types::chrono::{self, NaiveDateTime, Utc};
 
 use crate::rank::RankList;
 use crate::word_count::{TotalWordCount, WordCountArgument};
+
+struct DbReport
+{
+    id: i64,
+    guild_id: i64,
+    user_id: i64,
+    time: chrono::NaiveDateTime,
+    total_word_count: i32,
+    submission_note: Option<String>,
+}
+
+impl From<DbReport> for Report 
+{
+    fn from(value: DbReport) -> Self {
+        Self 
+        {
+            guild_id: (value.guild_id as u64).into(),
+            user_id: (value.user_id as u64).into(),
+            timestamp: chrono::DateTime::from_naive_utc_and_offset(value.time, Utc),
+            total_word_count: value.total_word_count as u32,
+            submission_note: value.submission_note,
+        }
+    }
+}
+
+/// A progress report.
+pub struct Report 
+{
+    guild_id: serenity::GuildId,
+    user_id: serenity::UserId,
+    timestamp: chrono::DateTime<Utc>,
+    total_word_count: u32,
+    submission_note: Option<String>,
+}
+
+impl Report
+{
+    pub fn new(
+        user: &UserStats,
+        when: chrono::DateTime<Utc>,
+        word_count_arg: WordCountArgument,
+        submission_note: Option<String>
+    ) -> Self
+    {
+        // Convert new project total word count.
+        let total_word_count = word_count_arg.convert_to_total(user.current_word_count);
+        Report {
+            guild_id: user.guild_id,
+            user_id: user.user_id,
+            timestamp: when,
+            total_word_count: total_word_count.into(),
+            submission_note,
+        }
+    }
+
+    pub async fn save(self, db: &PgPool) -> Result<()>
+    {
+        let guild_id: i64 = self.guild_id.into();
+        let user_id: i64 = self.user_id.into();
+        let time: NaiveDateTime = self.timestamp.naive_utc();
+        sqlx::query!("INSERT INTO reports (guild_id, user_id, time, total_word_count, submission_note) VALUES ($1, $2, $3, $4, $5)", guild_id, user_id, time, self.total_word_count as i32, self.submission_note)
+            .execute(db)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn load(&self, db: &PgPool, id: u64) -> Result<Self>
+    {
+        let db_report = sqlx::query_as!(DbReport, "SELECT * FROM reports WHERE id = $1", id as i64)
+            .fetch_one(db)
+            .await?;
+
+        let report: Report = db_report.into();
+        Ok(report)
+    }
+
+    pub async fn load_reports_for_user(&self, db: &PgPool, guild: serenity::GuildId, user: serenity::UserId) -> Result<Vec<Self>>
+    {
+        let guild_id: i64 = guild.into();
+        let user_id: i64 = user.into();
+        let reports: Vec<DbReport> = sqlx::query_as!(DbReport,"SELECT * FROM reports WHERE guild_id = $1 AND user_id = $2 ORDER BY time DESC;", guild_id, user_id)
+            .fetch_all(db)
+            .await?;
+
+        let reports: Vec<Self> = reports.into_iter().map(|report| report.into()).collect();
+        Ok(reports)
+    }
+}
 
 /// User's stored overall stats
 #[derive(Default)]
