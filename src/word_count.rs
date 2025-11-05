@@ -7,7 +7,7 @@ use derive_more::{From, Into};
 /// Represents a parsed word count argument, which can either be relative or overall.
 /// If a number parsed by WordCountArgument starts with '+' or '-' it is treated as relative,
 /// otherwise it is treated as total
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum WordCountArgument
 {
     Relative(i32),

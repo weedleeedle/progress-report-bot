@@ -9,11 +9,13 @@ use poise::serenity_prelude as serenity;
 use poise::Command;
 use anyhow::Error;
 use anyhow::Result;
+use sqlx::types::chrono::Utc;
 
 use crate::rank::DiscordRank;
 use crate::rank::Rank;
 use crate::rank::RankId;
 use crate::rank::RankList;
+use crate::report::Report;
 use crate::report::UserStats;
 use crate::word_count::TotalWordCount;
 use crate::word_count::WordCountArgument;
@@ -43,7 +45,7 @@ pub fn get_commands() -> Vec<Command<crate::core::GlobalCommandData, Error>>
     return commands;
 }
 
-/// Adds
+/// Adds or updates a rank.
 #[poise::command(slash_command, guild_only, default_member_permissions = "ADMINISTRATOR")]
 async fn set_rank(ctx: Context<'_>,
         #[description = "The role to grant when a user reaches the specified word count"]
@@ -117,7 +119,7 @@ async fn clear_ranks(ctx: Context<'_>) -> Result<()>
 ///
 /// Reducing your project word count will never demote you.
 #[poise::command(slash_command, guild_only)]
-async fn report(ctx: Context<'_>, word_count: String) -> Result<()>
+async fn report(ctx: Context<'_>, word_count: String, comment: Option<String>) -> Result<()>
 {
     let guild_id = ctx.guild_id().ok_or(anyhow!("This command can only be run in a server!"))?;
     let user_id = ctx.author().id;
@@ -126,8 +128,13 @@ async fn report(ctx: Context<'_>, word_count: String) -> Result<()>
 
     let rank_list = RankList::load(db, guild_id).await?;
     let user_stats = UserStats::load(db, guild_id, user_id).await?;
+
+    let timestamp = ctx.created_at().with_timezone(&Utc);
+
     let mut user_stats = user_stats.unwrap_or_else(|| UserStats::new(guild_id, user_id, &rank_list));
+    let report = Report::new(&user_stats, timestamp, word_count, comment);
     let updated_rank = user_stats.update_word_count(&rank_list, word_count);
+    report.save(db).await?;
     user_stats.save(db).await?;
     match updated_rank 
     {
