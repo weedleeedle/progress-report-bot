@@ -76,6 +76,7 @@ impl Report
         let guild_id: i64 = self.guild_id.into();
         let user_id: i64 = self.user_id.into();
         let time: NaiveDateTime = self.timestamp.naive_utc();
+        println!("{:?}", &self.submission_note);
         sqlx::query!("INSERT INTO reports (guild_id, user_id, time, total_word_count, submission_note) VALUES ($1, $2, $3, $4, $5)", guild_id, user_id, time, self.total_word_count as i32, self.submission_note)
             .execute(db)
             .await?;

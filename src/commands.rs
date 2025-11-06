@@ -5,7 +5,6 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 use poise::CreateReply;
-use poise::serenity_prelude::CreateEmbed;
 use poise::serenity_prelude::Role;
 use poise::serenity_prelude as serenity;
 use poise::Command;
@@ -13,7 +12,7 @@ use anyhow::Error;
 use anyhow::Result;
 use sqlx::types::chrono::Utc;
 
-use crate::display::create_embed_for_reports;
+use crate::display::create_reply_for_reports;
 use crate::rank::DiscordRank;
 use crate::rank::Rank;
 use crate::rank::RankList;
@@ -95,8 +94,7 @@ async fn list_ranks(ctx: Context<'_>) -> Result<()>
     }
 
     if response.is_empty()
-    {
-        response.push_str("No ranks. Make some with /set_rank!");
+    { response.push_str("No ranks. Make some with /set_rank!");
     }
 
     ctx.say(response).await?;
@@ -155,10 +153,9 @@ async fn list_reports(ctx: Context<'_>) -> Result<()>
     let db = ctx.data().get_pool();
 
     let reports = Report::load_reports_for_user(db, guild_id, user_id).await?;
-    let reply = CreateReply::default().embed(create_embed_for_reports(CreateEmbed::new(), reports.as_slice(), 5));
-
+    let (reply, handler) = create_reply_for_reports(CreateReply::default(), ctx, reports, 5);
     ctx.send(reply).await?;
-
+    handler.listen(ctx).await?;
     Ok(())
 }
 
