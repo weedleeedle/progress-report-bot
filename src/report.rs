@@ -1,6 +1,7 @@
 //! This module handles the types and methods for creating and working with reports,
 //! as well as user's saved stats.
 
+use getset::Getters;
 use poise::serenity_prelude as serenity;
 use sqlx::PgPool;
 use anyhow::Result;
@@ -11,6 +12,7 @@ use crate::word_count::{TotalWordCount, WordCountArgument};
 
 struct DbReport
 {
+    #[allow(unused)]
     id: i64,
     guild_id: i64,
     user_id: i64,
@@ -34,12 +36,18 @@ impl From<DbReport> for Report
 }
 
 /// A progress report.
+#[derive(Getters)]
 pub struct Report 
 {
+    #[getset(get = "pub")]
     guild_id: serenity::GuildId,
+    #[getset(get = "pub")]
     user_id: serenity::UserId,
+    #[getset(get = "pub")]
     timestamp: chrono::DateTime<Utc>,
+    #[getset(get = "pub")]
     total_word_count: u32,
+    #[getset(get = "pub")]
     submission_note: Option<String>,
 }
 
@@ -74,7 +82,7 @@ impl Report
         Ok(())
     }
 
-    pub async fn load(&self, db: &PgPool, id: u64) -> Result<Self>
+    pub async fn load(db: &PgPool, id: u64) -> Result<Self>
     {
         let db_report = sqlx::query_as!(DbReport, "SELECT * FROM reports WHERE id = $1", id as i64)
             .fetch_one(db)
@@ -84,7 +92,7 @@ impl Report
         Ok(report)
     }
 
-    pub async fn load_reports_for_user(&self, db: &PgPool, guild: serenity::GuildId, user: serenity::UserId) -> Result<Vec<Self>>
+    pub async fn load_reports_for_user(db: &PgPool, guild: serenity::GuildId, user: serenity::UserId) -> Result<Vec<Self>>
     {
         let guild_id: i64 = guild.into();
         let user_id: i64 = user.into();
@@ -94,6 +102,16 @@ impl Report
 
         let reports: Vec<Self> = reports.into_iter().map(|report| report.into()).collect();
         Ok(reports)
+    }
+
+    pub async fn delete_user_reports(db: &PgPool, guild: serenity::GuildId, user: serenity::UserId) -> Result<()>
+    {
+        let guild_id: i64 = guild.into();
+        let user_id: i64 = user.into();
+        sqlx::query!("DELETE FROM reports WHERE guild_id = $1 AND user_id = $2", guild_id, user_id)
+            .execute(db)
+            .await?;
+        Ok(())
     }
 }
 

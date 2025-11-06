@@ -1,9 +1,11 @@
 //! Defines Discord slash commands
 
+use std::format;
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use poise::serenity_prelude::model::guild;
+use poise::CreateReply;
+use poise::serenity_prelude::CreateEmbed;
 use poise::serenity_prelude::Role;
 use poise::serenity_prelude as serenity;
 use poise::Command;
@@ -11,16 +13,16 @@ use anyhow::Error;
 use anyhow::Result;
 use sqlx::types::chrono::Utc;
 
+use crate::display::create_embed_for_reports;
 use crate::rank::DiscordRank;
 use crate::rank::Rank;
-use crate::rank::RankId;
 use crate::rank::RankList;
 use crate::report::Report;
 use crate::report::UserStats;
 use crate::word_count::TotalWordCount;
 use crate::word_count::WordCountArgument;
+use crate::Context;
 
-type Context<'a> = poise::Context<'a, crate::core::GlobalCommandData, anyhow::Error>;
 
 /// get_commands() returns a static list of all functions to be registered 
 /// with the poise framework.
@@ -36,7 +38,7 @@ type Context<'a> = poise::Context<'a, crate::core::GlobalCommandData, anyhow::Er
 pub fn get_commands() -> Vec<Command<crate::core::GlobalCommandData, Error>>
 {
     // Release commands go here
-    let mut commands = vec![set_rank(), list_ranks(), clear_ranks(), report()];
+    let mut commands = vec![set_rank(), list_ranks(), clear_ranks(), report(), list_reports(), clear_reports()];
     // Add debug commands if in debug mode
     if cfg!(debug_assertions)
     {
@@ -141,6 +143,39 @@ async fn report(ctx: Context<'_>, word_count: String, comment: Option<String>) -
         true => ctx.say("This will update your rank some day!").await,
         false => ctx.say("Progress report submitted!").await,
     }?;
+    Ok(())
+}
+
+/// Lists a user's progress reports from latest to earliest.
+#[poise::command(slash_command, guild_only)]
+async fn list_reports(ctx: Context<'_>) -> Result<()>
+{
+    let guild_id = ctx.guild_id().ok_or(anyhow!("This command can only be run in a server!"))?;
+    let user_id = ctx.author().id;
+    let db = ctx.data().get_pool();
+
+    let reports = Report::load_reports_for_user(db, guild_id, user_id).await?;
+    let reply = CreateReply::default().embed(create_embed_for_reports(CreateEmbed::new(), reports.as_slice(), 5));
+
+    ctx.send(reply).await?;
+
+    Ok(())
+}
+
+/// CAUTION: Clears a user's history of progress reports.
+///
+/// This command will irrevocably delete a user's entire history of progress reports.
+/// Note that this will NOT delete a user's overall stats, so if you want to remove
+/// that too, use the `/clear_user` command.
+#[poise::command(slash_command, guild_only, default_member_permissions = "ADMINISTRATOR")]
+async fn clear_reports(ctx: Context<'_>, user: serenity::User) -> Result<()>
+{
+    let guild_id = ctx.guild_id().ok_or(anyhow!("This command can only be run in a server!"))?;
+    let user_id = user.id;
+    let db = ctx.data().get_pool();
+    Report::delete_user_reports(db, guild_id, user_id).await?;
+
+    ctx.say(format!("Deleted {}'s reports!", user)).await?;
     Ok(())
 }
 
