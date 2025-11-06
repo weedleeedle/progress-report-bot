@@ -30,7 +30,7 @@ fn create_embed_for_report_page(builder: CreateEmbed, reports: &[Report]) -> Cre
     let mut description = String::new();
     for report in reports
     {
-        description.push_str(&format!("{}\n`{} words`\n", report.timestamp(), report.total_word_count()));
+        description.push_str(&format!("{}\n`{} words`\n", report.timestamp().format("%Y-%m-%d %H:%M"), report.total_word_count()));
     }
     builder.description(description)
 }
