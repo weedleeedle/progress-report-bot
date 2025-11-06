@@ -19,9 +19,14 @@ pub struct ReportListInteractionHandler
 
 impl ReportListInteractionHandler
 {
-    pub fn new(ctx: crate::Context<'_>, reports: Vec<Report>, reports_per_page: usize) -> Self
+    pub fn new(ctx: crate::Context<'_>, reports: Vec<Report>, reports_per_page: usize) -> Option<Self>
     {
-        Self {
+        if reports.is_empty()
+        {
+            return None;
+        }
+
+        Some(Self {
             ctx_id_string: ctx.id().to_string(),
             prev_button_id: format!("{}prev", ctx.id().to_string()),
             next_button_id: format!("{}next", ctx.id().to_string()),
@@ -29,7 +34,7 @@ impl ReportListInteractionHandler
             report_list: reports,
             reports_per_page: reports_per_page,
             current_page: 0
-        }
+        })
     }
 
     pub async fn listen(mut self, ctx: crate::Context<'_>) -> anyhow::Result<()>
@@ -43,8 +48,7 @@ impl ReportListInteractionHandler
                 self.current_page = self.current_page.min(self.num_pages - 1);
             }
             else if &press.data.custom_id == &self.prev_button_id {
-                self.current_page -= 1;
-                self.current_page = self.current_page.max(0);
+                self.current_page = self.current_page.saturating_sub(1);
             }
             else {
                 continue;
@@ -80,7 +84,7 @@ impl ReportListInteractionHandler
 }
 
 /// Returns a [CreateReply] which tells poise how to create the embed.
-pub fn create_reply_for_reports(builder: CreateReply, ctx: crate::Context<'_>, reports: Vec<Report>, reports_per_page: usize) -> (CreateReply, ReportListInteractionHandler)
+pub fn create_reply_for_reports(builder: CreateReply, ctx: crate::Context<'_>, reports: Vec<Report>, reports_per_page: usize) -> (CreateReply, Option<ReportListInteractionHandler>)
 {
     // Create unique identifiers
     let ctx_id  = ctx.id();
@@ -94,16 +98,16 @@ pub fn create_reply_for_reports(builder: CreateReply, ctx: crate::Context<'_>, r
         ]);
         let mut report_page = reports.chunks(reports_per_page);
         let first_page = report_page.next();
-        let builder = match first_page 
+        match first_page 
         {
             None => {
                 builder.content("No progress reports yet! Submit one with `/report`!")
             },
             Some(page) => {
-                builder.embed(create_reply_for_report_page(CreateEmbed::new(), &page))
+                let builder = builder.embed(create_reply_for_report_page(CreateEmbed::new(), &page));
+                builder.components(vec![components])
             }
-        };
-        builder.components(vec![components])
+        }
     };
 
     // Build a component handler here somehow?

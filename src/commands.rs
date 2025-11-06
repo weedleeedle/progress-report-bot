@@ -155,7 +155,10 @@ async fn list_reports(ctx: Context<'_>) -> Result<()>
     let reports = Report::load_reports_for_user(db, guild_id, user_id).await?;
     let (reply, handler) = create_reply_for_reports(CreateReply::default(), ctx, reports, 5);
     ctx.send(reply).await?;
-    handler.listen(ctx).await?;
+    if let Some(handler) = handler
+    {
+        handler.listen(ctx).await?;
+    }
     Ok(())
 }
 
