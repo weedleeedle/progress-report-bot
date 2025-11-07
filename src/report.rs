@@ -2,6 +2,7 @@
 //! as well as user's saved stats.
 
 use getset::Getters;
+use log::debug;
 use poise::serenity_prelude as serenity;
 use sqlx::PgPool;
 use anyhow::Result;
@@ -73,10 +74,10 @@ impl Report
 
     pub async fn save(self, db: &PgPool) -> Result<()>
     {
+        debug!("Saving a report to the database");
         let guild_id: i64 = self.guild_id.into();
         let user_id: i64 = self.user_id.into();
         let time: NaiveDateTime = self.timestamp.naive_utc();
-        println!("{:?}", &self.submission_note);
         sqlx::query!("INSERT INTO reports (guild_id, user_id, time, total_word_count, submission_note) VALUES ($1, $2, $3, $4, $5)", guild_id, user_id, time, self.total_word_count as i32, self.submission_note)
             .execute(db)
             .await?;
@@ -117,11 +118,12 @@ impl Report
 }
 
 /// User's stored overall stats
-#[derive(Default)]
+#[derive(Default, Getters)]
 pub struct UserStats
 {
     user_id: serenity::UserId,
     guild_id: serenity::GuildId,
+    #[getset(get = "pub")]
     role_id: serenity::RoleId,
     /// The highest word count the user has ever attained.
     max_word_count: u32,
@@ -163,9 +165,9 @@ impl UserStats
 {
     /// Updates a user's stored word count in place.
     ///
-    /// Returns true if the user's rank changed. 
-    /// Returns false if the user's rank did not change.
-    pub fn update_word_count(&mut self, rank_list: &RankList, word_count: WordCountArgument) -> bool
+    /// Returns [Some] with the user's old rank  if the user was promoted or demoted.
+    /// Returns [None] if the user is the same rank.
+    pub fn update_word_count(&mut self, rank_list: &RankList, word_count: WordCountArgument) -> Option<serenity::RoleId>
     {
         let total_word_count: TotalWordCount = word_count.convert_to_total(self.current_word_count);
         self.current_word_count = total_word_count.word_count();
@@ -176,20 +178,24 @@ impl UserStats
 
     /// Updates a user's rank.
     ///
-    /// Returns true if the user's rank was changed.
-    /// Returns false if the user's rank did not change.
-    fn update_rank(&mut self, rank_list: &RankList) -> bool
+    /// Returns [Some] with the user's old role id if the user was promoted or demoted
+    /// Returns [None] if the user is the same rank.
+    fn update_rank(&mut self, rank_list: &RankList) -> Option<serenity::RoleId>
     {
-        let rank = rank_list.get_rank_for_word_count(self.max_word_count);
+        // Originally we updated a user's rank based on max word count, but we actually want to
+        // update it based on current word count. 
+        // We'll keep tracking max_word_count for posterity though.
+        let rank = rank_list.get_rank_for_word_count(self.current_word_count);
         let new_role_id = *rank.rank_id.role_id();
         if new_role_id != self.role_id
         {
+            let old_role_id = self.role_id;
             self.role_id = new_role_id;
-            true
+            Some(old_role_id)
         }
         else
         {
-            false
+            None
         }
     }
 

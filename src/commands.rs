@@ -4,6 +4,7 @@ use std::format;
 use std::str::FromStr;
 
 use anyhow::anyhow;
+use log::info;
 use poise::CreateReply;
 use poise::serenity_prelude::Role;
 use poise::serenity_prelude as serenity;
@@ -13,6 +14,7 @@ use anyhow::Result;
 use sqlx::types::chrono::Utc;
 
 use crate::display::create_reply_for_reports;
+use crate::mock::GuildLike;
 use crate::rank::DiscordRank;
 use crate::rank::Rank;
 use crate::rank::RankList;
@@ -128,6 +130,14 @@ async fn report(ctx: Context<'_>, word_count: String, comment: Option<String>) -
 
     let rank_list = RankList::load(db, guild_id).await?;
     let user_stats = UserStats::load(db, guild_id, user_id).await?;
+    if let None = user_stats
+    {
+        // This is a new user, we want to assign them the starting role before we do the rest of
+        // the shit.
+        let user = ctx.author_member().await.ok_or(anyhow!("What the HELL are you doing"))?;
+        info!("New user, assigning them the lowest role");
+        user.add_role(ctx, rank_list.get_rank_for_word_count(0).rank_id.role_id()).await?;
+    }
 
     let timestamp = ctx.created_at().with_timezone(&Utc);
 
@@ -135,12 +145,22 @@ async fn report(ctx: Context<'_>, word_count: String, comment: Option<String>) -
     let report = Report::new(&user_stats, timestamp, word_count, comment);
     let updated_rank = user_stats.update_word_count(&rank_list, word_count);
     report.save(db).await?;
-    user_stats.save(db).await?;
     match updated_rank 
     {
-        true => ctx.say("This will update your rank some day!").await,
-        false => ctx.say("Progress report submitted!").await,
+        Some(old_rank_id) => 
+        {
+            info!("Assigning new rank to user");
+            let user = ctx.author_member().await.ok_or(anyhow!("What the HELL are you doing"))?;
+            assert_eq!(user.user.id, user_id);
+            user.add_role(ctx, user_stats.role_id()).await?;
+            user.remove_role(ctx, old_rank_id).await?;
+            let guild = ctx.partial_guild().await.unwrap();
+            let role = guild.role(*user_stats.role_id()).unwrap();
+            ctx.say(format!("Congratulations, you've been assigned the {} rank!", role)).await
+        },
+        None => ctx.say("Progress report submitted!").await,
     }?;
+    user_stats.save(db).await?;
     Ok(())
 }
 
