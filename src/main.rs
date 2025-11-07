@@ -1,7 +1,9 @@
 use log::warn;
+use poise::Command;
 use poise::serenity_prelude as serenity;
 use progress_report_bot::commands;
 use progress_report_bot::core;
+use progress_report_bot::core::GlobalCommandData;
 
 type Result<T> = anyhow::Result<T>;
 type Context<'a> = poise::Context<'a, (), anyhow::Error>;
@@ -18,7 +20,7 @@ async fn main() -> Result<()>
     }
 
     let variables = core::Variables::load_variables()?;
-    let intents = serenity::GatewayIntents::non_privileged() & serenity::GatewayIntents::MESSAGE_CONTENT;
+    let intents = serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
 
     let global_command_data = core::GlobalCommandDataBuilder::new()
                                 .max_connections(variables.max_connections())
@@ -29,7 +31,7 @@ async fn main() -> Result<()>
         .options(poise::FrameworkOptions {
             commands: commands::get_commands(),
             prefix_options: poise::PrefixFrameworkOptions {
-                prefix: Some(".".to_string()),
+                mention_as_prefix: true,
                 ..Default::default()
             },
             ..Default::default()

@@ -126,8 +126,10 @@ pub struct UserStats
     #[getset(get = "pub")]
     role_id: serenity::RoleId,
     /// The highest word count the user has ever attained.
+    #[getset(get = "pub")]
     max_word_count: u32,
     /// The user's current project word count.
+    #[getset(get = "pub")]
     current_word_count: u32,
 }
 

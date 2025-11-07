@@ -36,15 +36,29 @@ use crate::Context;
 /// The first is the external data/state that is included with all commands
 /// (see [GlobalCommandData]). The second is an error type,
 /// we use [anyhow::Error] as our generic error type across all commands.
+#[cfg(not(debug_assertions))]
 pub fn get_commands() -> Vec<Command<crate::core::GlobalCommandData, Error>>
 {
-    // Release commands go here
-    let mut commands = vec![set_rank(), list_ranks(), clear_ranks(), report(), list_reports(), clear_reports()];
+    return get_commands_inner();
+}
+
+#[cfg(debug_assertions)]
+pub fn get_commands() -> Vec<Command<crate::core::GlobalCommandData, Error>>
+{
+    let mut commands = get_commands_inner();
     // Add debug commands if in debug mode
     if cfg!(debug_assertions)
     {
         commands.append(&mut debug::get_debug_commands());
     }
+    return commands;
+}
+
+fn get_commands_inner() -> Vec<Command<crate::core::GlobalCommandData, Error>>
+{
+    // Release commands go here
+    let commands = vec![set_rank(), list_ranks(), clear_ranks(), report(), reporpt(), list_reports(), clear_reports(), list_stats()];
+
     return commands;
 }
 
@@ -121,7 +135,27 @@ async fn clear_ranks(ctx: Context<'_>) -> Result<()>
 ///
 /// Reducing your project word count will never demote you.
 #[poise::command(slash_command, guild_only)]
-async fn report(ctx: Context<'_>, word_count: String, comment: Option<String>) -> Result<()>
+async fn report(ctx: Context<'_>, 
+    #[description = "A word count. Can be total word count (default) or relative by starting your word count with + or -"]
+    word_count: String, 
+    #[description = "An optional comment to include with your report"]
+    comment: Option<String>) -> Result<()>
+{
+    report_inner(ctx, word_count, comment).await
+}
+
+/// Submits a progress reporpt
+#[poise::command(slash_command, guild_only)]
+async fn reporpt(ctx: Context<'_>,
+    #[description = "A word count. Can be total word count (default) or relative by starting your word count with + or -"]
+    word_count: String,
+    #[description = "An optional comment to include with your reporpt"]
+    comment: Option<String>) -> Result<()>
+{
+    report_inner(ctx, word_count, comment).await
+}
+
+async fn report_inner(ctx: Context<'_>, word_count: String, comment: Option<String>) -> Result<()>
 {
     let guild_id = ctx.guild_id().ok_or(anyhow!("This command can only be run in a server!"))?;
     let user_id = ctx.author().id;
@@ -162,6 +196,7 @@ async fn report(ctx: Context<'_>, word_count: String, comment: Option<String>) -
     }?;
     user_stats.save(db).await?;
     Ok(())
+
 }
 
 /// Lists a user's progress reports from latest to earliest.
@@ -196,6 +231,29 @@ async fn clear_reports(ctx: Context<'_>, user: serenity::User) -> Result<()>
     Report::delete_user_reports(db, guild_id, user_id).await?;
 
     ctx.say(format!("Deleted {}'s reports!", user)).await?;
+    Ok(())
+}
+
+/// Lists a user's overall stats.
+#[poise::command(slash_command, guild_only)]
+async fn list_stats(ctx: Context<'_>, user: Option<serenity::User>) -> Result<()>
+{
+    let guild_id = ctx.guild_id().ok_or(anyhow!("This command can only be run in a server!"))?;
+    let user = user.as_ref();
+    let user_id = user.unwrap_or_else(|| ctx.author()).id;
+    let db = ctx.data().get_pool();
+    let user_stats = UserStats::load(db, guild_id, user_id).await?;
+    match user_stats
+    {
+        None => {
+            ctx.say("No stats yet! Try submitting a report with `/report`!").await?;
+        }
+        Some(user_stats) => {
+            let guild = ctx.partial_guild().await.unwrap();
+            let role = guild.role(*user_stats.role_id()).unwrap();
+            ctx.say(format!("Current rank: {}\nHighest word count: {}\nCurrent word count: {}", role, user_stats.max_word_count(), user_stats.current_word_count())).await?;
+        }
+    }
     Ok(())
 }
 
