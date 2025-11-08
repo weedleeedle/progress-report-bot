@@ -1,7 +1,7 @@
 use log::warn;
 use poise::serenity_prelude as serenity;
-use progress_report_bot::commands;
-use progress_report_bot::core;
+use presley_bot::commands;
+use presley_bot::core;
 
 type Result<T> = anyhow::Result<T>;
 

@@ -1521,6 +1521,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "presley-bot"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "derive_more",
+ "dotenvy",
+ "env_logger",
+ "getset",
+ "log",
+ "poise",
+ "sqlx",
+ "thiserror 2.0.17",
+ "tokio",
+]
+
+[[package]]
 name = "proc-macro-error-attr2"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1549,22 +1565,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ee95bc4ef87b8d5ba32e8b7714ccc834865276eab0aed5c9958d00ec45f49e8"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "progress-report-bot"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "derive_more",
- "dotenvy",
- "env_logger",
- "getset",
- "log",
- "poise",
- "sqlx",
- "thiserror 2.0.17",
- "tokio",
 ]
 
 [[package]]
