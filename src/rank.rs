@@ -258,12 +258,14 @@ impl RankList
         Ok(())
     }
 
-    pub fn add_ranks(&mut self, ranks: &[Rank])
+    pub fn add_ranks(&mut self, ranks: &[Rank]) -> Result<(), AddRankError>
     {
         for rank in ranks
         {
-            self.add_rank(*rank);
+            self.add_rank(*rank)?;
         }
+
+        Ok(())
     }
 
     /// Interestingly, we don't care about the minimum_word_count here.

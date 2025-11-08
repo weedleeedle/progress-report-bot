@@ -71,7 +71,7 @@ async fn set_rank(ctx: Context<'_>,
         minimum_word_count: u32
     ) -> Result<()>
 {
-    let minimum_word_count = TotalWordCount::new(minimum_word_count);
+    let minimum_word_count = TotalWordCount::from(minimum_word_count);
     let pool = ctx.data().get_pool();
     let guild_id = ctx.guild_id().ok_or(anyhow!("This command can only be run in a server!"))?;
 

@@ -1,12 +1,9 @@
 use log::warn;
-use poise::Command;
 use poise::serenity_prelude as serenity;
 use progress_report_bot::commands;
 use progress_report_bot::core;
-use progress_report_bot::core::GlobalCommandData;
 
 type Result<T> = anyhow::Result<T>;
-type Context<'a> = poise::Context<'a, (), anyhow::Error>;
 
 #[tokio::main]
 async fn main() -> Result<()> 
@@ -26,6 +23,11 @@ async fn main() -> Result<()>
                                 .max_connections(variables.max_connections())
                                 .database_url(variables.database_url().to_string())
                                 .build().await?;
+
+    // Trigger running migrations on the database
+    sqlx::migrate!("./migrations")
+        .run(global_command_data.get_pool())
+        .await?;
 
     let framework = poise::Framework::<core::GlobalCommandData, anyhow::Error>::builder() 
         .options(poise::FrameworkOptions {
@@ -48,7 +50,7 @@ async fn main() -> Result<()>
             })
         })
         .build();
-    
+
     let client = serenity::ClientBuilder::new(variables.token(), intents)
         .framework(framework)
         .await;
