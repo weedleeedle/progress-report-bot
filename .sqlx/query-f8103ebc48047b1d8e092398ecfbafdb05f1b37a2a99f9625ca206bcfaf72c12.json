@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM rank_table WHERE guild_id = $1;",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f8103ebc48047b1d8e092398ecfbafdb05f1b37a2a99f9625ca206bcfaf72c12"
+}

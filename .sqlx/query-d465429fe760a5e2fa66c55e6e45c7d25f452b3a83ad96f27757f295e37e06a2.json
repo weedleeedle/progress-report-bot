@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM reports WHERE guild_id = $1 AND user_id = $2 ORDER BY time DESC;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "guild_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "user_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "time",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 4,
+        "name": "total_word_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "submission_note",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "d465429fe760a5e2fa66c55e6e45c7d25f452b3a83ad96f27757f295e37e06a2"
+}

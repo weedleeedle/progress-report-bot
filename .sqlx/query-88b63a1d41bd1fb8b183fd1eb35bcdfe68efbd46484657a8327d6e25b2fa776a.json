@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO rank_table (guild_id, role_id, minimum_word_count) VALUES ($1, $2, $3) ON CONFLICT (guild_id, role_id) DO UPDATE SET minimum_word_count = excluded.minimum_word_count;",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "88b63a1d41bd1fb8b183fd1eb35bcdfe68efbd46484657a8327d6e25b2fa776a"
+}

@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM rank_table WHERE guild_id = $1;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "guild_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "role_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "minimum_word_count",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "6081ba1c896846f3af38958bacb49f8bd7fa36b897d30fdb67741a81dbd3599a"
+}

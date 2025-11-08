@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM user_table WHERE guild_id = $1 AND user_id = $2;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "guild_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "role_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "max_word_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "current_word_count",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "784b9a95f106b7d3844cc715e4a275fb4b7afe4e4b47a408a8132fa62ccbd71a"
+}

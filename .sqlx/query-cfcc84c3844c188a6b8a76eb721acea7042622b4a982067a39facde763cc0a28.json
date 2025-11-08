@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO user_table (guild_id, user_id, role_id, max_word_count, current_word_count) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (guild_id, user_id) DO UPDATE SET max_word_count = excluded.max_word_count, current_word_count = excluded.current_word_count, role_id = excluded.role_id;",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cfcc84c3844c188a6b8a76eb721acea7042622b4a982067a39facde763cc0a28"
+}
