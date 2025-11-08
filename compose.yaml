@@ -1,0 +1,14 @@
+services:
+    app:
+        build: .
+        env_file:
+            - .env
+    db:
+        image: postgres:17
+        env_file: 
+            - .env
+        volumes:
+            - db-data:/var/lib/postgres/data
+
+volumes:
+    db-data:
