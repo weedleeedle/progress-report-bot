@@ -32,7 +32,7 @@ pub struct DiscordRank<'a, T: RoleLike>
 impl Display for DiscordRank<'_, serenity::Role>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:\t{}\n", self.role, self.minimum_word_count)
+        writeln!(f, "{}:\t{}", self.role, self.minimum_word_count)
     }
 }
 
@@ -64,7 +64,7 @@ impl Eq for Rank {}
 impl PartialOrd for Rank
 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(&other))
+        Some(self.cmp(other))
     }
 }
 
@@ -204,7 +204,7 @@ pub enum AddRankDiscordError
 
 impl AddRankError
 {
-    pub fn to_discord_error<'a, G: GuildLike<serenity::Role>>(&self, get_role_object: &'a G) -> Option<AddRankDiscordError>
+    pub fn to_discord_error<G: GuildLike<serenity::Role>>(&self, get_role_object: &G) -> Option<AddRankDiscordError>
     {
         match self
         {
@@ -298,7 +298,7 @@ impl RankList
             highest_rank = rank;
         }
 
-        return *highest_rank;
+        *highest_rank
     }
 
     /// Loads a RankList from a database.
@@ -345,6 +345,7 @@ impl RankList
     }
 
     /// Associated command that clears all ranks from a guild's database.
+    /// If you want to remove only one rank, see [delete_rank()]
     ///
     /// This probably just works out of the box but long term I'd like some way to enforce "hey
     /// don't clear all the ranks (or honestly do any writing) while you have a reference to a
@@ -354,6 +355,20 @@ impl RankList
     {
         let guild_id: i64 = guild_id.into();
         sqlx::query!("DELETE FROM rank_table WHERE guild_id = $1;", guild_id)
+            .execute(db)
+            .await?;
+        Ok(())
+    }
+
+    /// Deletes a specific rank from the database using the guild's ID and the ID of the role to
+    /// remove.
+    ///
+    /// If you want to remove all ranks from a guild, see [clear_all_ranks()]
+    pub async fn delete_rank(db: &PgPool, guild_id: GuildId, role_id: RoleId) -> anyhow::Result<()>
+    {
+        let guild_id: i64 = guild_id.into();
+        let role_id: i64 = role_id.into();
+        sqlx::query!("DELETE FROM rank_table WHERE guild_id = $1 AND role_id = $2;", guild_id, role_id)
             .execute(db)
             .await?;
         Ok(())

@@ -118,7 +118,7 @@ impl Report
 }
 
 /// User's stored overall stats
-#[derive(Default, Getters)]
+#[derive(Default, Getters, Clone, Copy)]
 pub struct UserStats
 {
     user_id: serenity::UserId,
@@ -131,35 +131,6 @@ pub struct UserStats
     /// The user's current project word count.
     #[getset(get = "pub")]
     current_word_count: u32,
-}
-
-impl TryFrom<DbUserStats> for UserStats
-{
-    type Error = anyhow::Error;
-
-    fn try_from(value: DbUserStats) -> Result<Self> {
-        let guild_id: u64 = value.guild_id.try_into()?;
-        let user_id: u64 = value.user_id.try_into()?;
-        let role_id: u64 = value.role_id.try_into()?;
-        Ok(Self {
-            guild_id: guild_id.into(),
-            user_id: user_id.into(),
-            role_id: role_id.into(),
-            max_word_count: value.max_word_count.try_into()?,
-            current_word_count: value.current_word_count.try_into()?,
-        })
-    }
-}
-
-/// Internal implementation of the database record.
-struct DbUserStats
-{
-    guild_id: i64,
-    user_id: i64,
-    // foreign key?
-    role_id: i64,
-    max_word_count: i64,
-    current_word_count: i64,
 }
 
 
@@ -241,6 +212,34 @@ impl UserStats
             .await?;
         Ok(())
     }
+}
+
+impl TryFrom<DbUserStats> for UserStats
+{
+    type Error = anyhow::Error;
+
+    fn try_from(value: DbUserStats) -> Result<Self> {
+        let guild_id: u64 = value.guild_id.try_into()?;
+        let user_id: u64 = value.user_id.try_into()?;
+        let role_id: u64 = value.role_id.try_into()?;
+        Ok(Self {
+            guild_id: guild_id.into(),
+            user_id: user_id.into(),
+            role_id: role_id.into(),
+            max_word_count: value.max_word_count.try_into()?,
+            current_word_count: value.current_word_count.try_into()?,
+        })
+    }
+}
+
+/// Internal implementation of the database record.
+struct DbUserStats
+{
+    guild_id: i64,
+    user_id: i64,
+    role_id: i64,
+    max_word_count: i64,
+    current_word_count: i64,
 }
 
 #[cfg(test)]

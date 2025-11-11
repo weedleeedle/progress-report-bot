@@ -10,7 +10,11 @@ use derive_more::{From, Into};
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum WordCountArgument
 {
+    /// A relative word count. A word count is parsed as relative when it begins with a '+' or '-'
+    /// This variant stores the relative offset given by the argument.
     Relative(i32),
+    /// A total word count. A word count is parsed as total when it does not begin with a '+' or
+    /// '-'. This variant stores the total submitted word count.
     Total(u32),
 }
 
@@ -33,7 +37,7 @@ impl FromStr for WordCountArgument
         {
             true => Self::Relative(match s.chars().nth(0).unwrap() {
                 '+' => parsed_remainder.try_into().unwrap(),
-                '-' => TryInto::<i32>::try_into(parsed_remainder).unwrap() * -1,
+                '-' => -TryInto::<i32>::try_into(parsed_remainder).unwrap(),
                 _ => unreachable!()
             }),
             false => Self::Total(parsed_remainder),
@@ -89,6 +93,7 @@ impl TotalWordCount
         Self(word_count)
     }
 
+    /// Gets the word count. You can also just use [Into] to get the inner value out.
     pub fn word_count(&self) -> u32
     {
         self.0

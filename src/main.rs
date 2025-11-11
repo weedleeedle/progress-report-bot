@@ -19,7 +19,7 @@ async fn main() -> Result<()>
     let variables = core::Variables::load_variables()?;
     let intents = serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
 
-    let global_command_data = core::GlobalCommandDataBuilder::new()
+    let global_command_data = core::GlobalCommandDataBuilder::default()
                                 .max_connections(variables.max_connections())
                                 .database_url(variables.database_url().to_string())
                                 .build().await?;

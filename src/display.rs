@@ -28,11 +28,11 @@ impl ReportListInteractionHandler
 
         Some(Self {
             ctx_id_string: ctx.id().to_string(),
-            prev_button_id: format!("{}prev", ctx.id().to_string()),
-            next_button_id: format!("{}next", ctx.id().to_string()),
+            prev_button_id: format!("{}prev", ctx.id()),
+            next_button_id: format!("{}next", ctx.id()),
             num_pages: reports.chunks(reports_per_page).len(),
             report_list: reports,
-            reports_per_page: reports_per_page,
+            reports_per_page,
             current_page: 0
         })
     }
@@ -43,11 +43,11 @@ impl ReportListInteractionHandler
                 .timeout(std::time::Duration::from_secs(3600))
                 .await
         {
-            if &press.data.custom_id == &self.next_button_id {
+            if press.data.custom_id == self.next_button_id {
                 self.current_page += 1;
                 self.current_page = self.current_page.min(self.num_pages - 1);
             }
-            else if &press.data.custom_id == &self.prev_button_id {
+            else if press.data.custom_id == self.prev_button_id {
                 self.current_page = self.current_page.saturating_sub(1);
             }
             else {
@@ -104,7 +104,7 @@ pub fn create_reply_for_reports(builder: CreateReply, ctx: crate::Context<'_>, r
                 builder.content("No progress reports yet! Submit one with `/report`!")
             },
             Some(page) => {
-                let builder = builder.embed(create_reply_for_report_page(CreateEmbed::new(), &page));
+                let builder = builder.embed(create_reply_for_report_page(CreateEmbed::new(), page));
                 builder.components(vec![components])
             }
         }
@@ -121,7 +121,7 @@ fn create_reply_for_report_page(builder: CreateEmbed, reports: &[Report]) -> Cre
     {
         let submission_note = match report.submission_note()
         {
-            None => format!(""),
+            None => String::new(),
             Some(note) => format!("\n> {}", note)
         };
 

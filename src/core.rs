@@ -15,17 +15,6 @@ pub struct GlobalCommandData {
     /// Note that PgPool *already* implemnts Arc and can is intended 
     /// to be cloned across threads and all over the place
     db_pool: PgPool,
-    /*
-    /// Reference to CacheAndHttp, which allows us to interact with REST Api.
-    /// Cache can cache results so that less API calls are required.
-    // I considered using some form of [serenity::Client] here
-    // but I am not sure if that's better than this.
-    // This may change later lol.
-    // This is why I'm leaving it as "client" though.
-    //
-    // This MUST be set when this struct is created!!!!
-    client: Option<Arc<serenity::CacheAndHttp>>
-    */
 }
 
 impl GlobalCommandData
@@ -87,14 +76,14 @@ pub struct GlobalCommandDataBuilder
 #[error("Required field {0} was not set and has no default")]
 pub struct MissingRequiredField(&'static str);
 
-impl GlobalCommandDataBuilder 
+impl Default for GlobalCommandDataBuilder
 {
     /// Creates a new GlobalCommandDataBuilder.
     /// 
     /// # Default Settings
     /// For settings that do have default options, those are set here.
     /// - max_connections = 1
-    pub fn new() -> Self 
+    fn default() -> Self 
     {
         Self
         {
@@ -102,7 +91,10 @@ impl GlobalCommandDataBuilder
             database_url: None,
         }
     }
+}
 
+impl GlobalCommandDataBuilder 
+{
     /// Sets the maximum number of connections for the database pool.
     /// The default is 1 if it is not set here.
     pub fn max_connections(mut self, max_connections: u32) -> Self
@@ -131,7 +123,7 @@ impl GlobalCommandDataBuilder
             Ok(GlobalCommandData {
                 db_pool: PgPoolOptions::new()
                     .max_connections(self.max_connections)
-                    .connect(&self.database_url.as_ref().unwrap())
+                    .connect(self.database_url.as_ref().unwrap())
                     .await?,
                 //client: None,
             })
@@ -149,8 +141,8 @@ pub struct Variables {
 
 /// Loading variables can fail for two reasons:
 /// - A required environment variable wasn't found.
-/// - An environment variable was found but was in the wrong format (i.e MAX_CONNECTIONS not being
-/// a u32)
+/// - An environment variable was found but was in the wrong format (i.e MAX_CONNECTIONS not being a u32)
+///
 /// This error is thrown by [Variables::load_variables()] in either case.
 #[derive(Debug,Error)]
 pub enum LoadVariablesError

@@ -1,10 +1,9 @@
-//! Defines Discord slash commands
+//! Defines the bot's Discord slash commands
 
 use std::format;
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use log::info;
 use poise::CreateReply;
 use poise::serenity_prelude::Role;
 use poise::serenity_prelude as serenity;
@@ -20,6 +19,9 @@ use crate::rank::Rank;
 use crate::rank::RankList;
 use crate::report::Report;
 use crate::report::UserStats;
+use crate::user_registration::UpdateOrAssignUserRankReturnStatus;
+use crate::user_registration::UserReportArgs;
+use crate::user_registration::update_or_assign_user_rank;
 use crate::word_count::TotalWordCount;
 use crate::word_count::WordCountArgument;
 use crate::Context;
@@ -51,15 +53,14 @@ pub fn get_commands() -> Vec<Command<crate::core::GlobalCommandData, Error>>
     {
         commands.append(&mut debug::get_debug_commands());
     }
-    return commands;
+    commands
 }
 
 fn get_commands_inner() -> Vec<Command<crate::core::GlobalCommandData, Error>>
 {
     // Release commands go here
     let commands = vec![set_rank(), list_ranks(), clear_ranks(), report(), reporpt(), list_reports(), clear_reports(), list_stats()];
-
-    return commands;
+    commands
 }
 
 /// Adds or updates a rank.
@@ -67,7 +68,7 @@ fn get_commands_inner() -> Vec<Command<crate::core::GlobalCommandData, Error>>
 async fn set_rank(ctx: Context<'_>,
         #[description = "The role to grant when a user reaches the specified word count"]
         role: serenity::Role,
-        #[description = "The minimum word count needed for a rank"]
+        #[description = "The minimum word count threshold needed for a rank"]
         minimum_word_count: u32
     ) -> Result<()>
 {
@@ -110,7 +111,8 @@ async fn list_ranks(ctx: Context<'_>) -> Result<()>
     }
 
     if response.is_empty()
-    { response.push_str("No ranks. Make some with /set_rank!");
+    {
+        response.push_str("No ranks. Make some with /set_rank!");
     }
 
     ctx.say(response).await?;
@@ -164,39 +166,44 @@ async fn report_inner(ctx: Context<'_>, word_count: String, comment: Option<Stri
 
     let rank_list = RankList::load(db, guild_id).await?;
     let user_stats = UserStats::load(db, guild_id, user_id).await?;
-    if let None = user_stats
-    {
-        // This is a new user, we want to assign them the starting role before we do the rest of
-        // the shit.
-        let user = ctx.author_member().await.ok_or(anyhow!("What the HELL are you doing"))?;
-        info!("New user, assigning them the lowest role");
-        user.add_role(ctx, rank_list.get_rank_for_word_count(0).rank_id.role_id()).await?;
-    }
 
+    let user = ctx.author_member().await.expect("We know this is being run in a guild, so we don't have to handle this.");
+    // Update and save the user's overall stats
+    let report_args = UserReportArgs
+    {
+        ctx,
+        guild_id,
+        user: &user,
+        rank_list: &rank_list,
+        report_word_count: word_count
+    };
+    let (user_stats, result) = update_or_assign_user_rank(&report_args, user_stats).await?;
+    // Generate and save the report
     let timestamp = ctx.created_at().with_timezone(&Utc);
-
-    let mut user_stats = user_stats.unwrap_or_else(|| UserStats::new(guild_id, user_id, &rank_list));
     let report = Report::new(&user_stats, timestamp, word_count, comment);
-    let updated_rank = user_stats.update_word_count(&rank_list, word_count);
     report.save(db).await?;
-    match updated_rank 
-    {
-        Some(old_rank_id) => 
-        {
-            info!("Assigning new rank to user");
-            let user = ctx.author_member().await.ok_or(anyhow!("What the HELL are you doing"))?;
-            assert_eq!(user.user.id, user_id);
-            user.add_role(ctx, user_stats.role_id()).await?;
-            user.remove_role(ctx, old_rank_id).await?;
-            let guild = ctx.partial_guild().await.unwrap();
-            let role = guild.role(*user_stats.role_id()).unwrap();
-            ctx.say(format!("Congratulations, you've been assigned the {} rank!", role)).await
-        },
-        None => ctx.say("Progress report submitted!").await,
-    }?;
     user_stats.save(db).await?;
-    Ok(())
+    let guild = ctx.partial_guild().await.unwrap();
+    let response = match result
+    {
+        UpdateOrAssignUserRankReturnStatus::RegisterNewUserRank(role_id) => 
+        {
+            let role = guild.role(role_id).ok_or(anyhow!("Whoops! That role doesn't exist!"))?;
+            format!("Welcome {}! Congratulations on your first report! You've reached {}", &user, role)
+        }
+        UpdateOrAssignUserRankReturnStatus::UpdateExistingUserRank(role_id) =>
+        {
+            let role = guild.role(role_id).ok_or(anyhow!("Whoops! That role doesn't exist!"))?;
+            format!("You've reached {}! Congratulations, {}!", role, &user)
+        }
+        UpdateOrAssignUserRankReturnStatus::ReportNotUpdateUserRank =>
+        {
+            format!("Progress report submitted. Good work, {}!", &user)
+        }
+    };
 
+    ctx.say(response).await?;
+    Ok(())
 }
 
 /// Lists a user's progress reports from latest to earliest.
