@@ -3,6 +3,8 @@
 //! Global command data includes things like the Discord client,
 //! the scheduler, and the database donnection pool.
 
+use getset::Getters;
+use getset::CopyGetters;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
 use anyhow::Result;
@@ -112,6 +114,7 @@ impl GlobalCommandDataBuilder
         self
     }
 
+    /// Builds a [GlobalCommandData]. Requires [Self::database_url()] to have been set.
     pub async fn build(&self) -> Result<GlobalCommandData>
     {
         if self.database_url.is_none()
@@ -133,9 +136,16 @@ impl GlobalCommandDataBuilder
 
 /// Defines application configuration variables that are loaded from environment variables.
 /// Instantiate this struct with [Variables::load_variables()]
+#[derive(Getters, CopyGetters)]
 pub struct Variables {
+    /// The Discord authentication token.
+    #[getset(get = "pub")]
     token: String,
+    /// The maximum number of simultaneous database connections.
+    #[getset(get_copy = "pub")]
     max_connections: u32,
+    /// The URL to connect to the database.
+    #[getset(get = "pub")]
     database_url: String,
 }
 
@@ -147,8 +157,10 @@ pub struct Variables {
 #[derive(Debug,Error)]
 pub enum LoadVariablesError
 {
+    /// A required environment variable was not found. 
     #[error("Missing required environment variable {0}")]
     MissingRequiredEnvironmentVariable(&'static str),
+    /// A required environment variable was found but was in an invalid format.
     #[error("Environment variable {0} was in an invalid format: {1}")]
     EnvironmentVariableInInvalidFormat(&'static str, &'static str),
 }
@@ -196,20 +208,5 @@ impl Variables
             max_connections,
             database_url
         })
-    }
-
-    pub fn token(&self) -> &str
-    {
-        &self.token
-    }
-
-    pub fn max_connections(&self) -> u32 
-    {
-        self.max_connections
-    }
-    
-    pub fn database_url(&self) -> &str
-    {
-        &self.database_url
     }
 }

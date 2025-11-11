@@ -40,20 +40,27 @@ impl From<DbReport> for Report
 #[derive(Getters)]
 pub struct Report 
 {
+    /// The guild ID.
     #[getset(get = "pub")]
     guild_id: serenity::GuildId,
+    /// The user ID.
     #[getset(get = "pub")]
     user_id: serenity::UserId,
+    /// The time when the report was submitted.
     #[getset(get = "pub")]
     timestamp: chrono::DateTime<Utc>,
+    /// The user's total word count. A [WordCountArgument] is converted to a u32,
+    /// so only the total word count is stored.
     #[getset(get = "pub")]
     total_word_count: u32,
+    /// The user's optional comment saved along with their report.
     #[getset(get = "pub")]
     submission_note: Option<String>,
 }
 
 impl Report
 {
+    /// Creates a new report.
     pub fn new(
         user: &UserStats,
         when: chrono::DateTime<Utc>,
@@ -72,6 +79,7 @@ impl Report
         }
     }
 
+    /// Saves a report to the database.
     pub async fn save(self, db: &PgPool) -> Result<()>
     {
         debug!("Saving a report to the database");
@@ -84,6 +92,7 @@ impl Report
         Ok(())
     }
 
+    /// Loads a single report by ID.
     pub async fn load(db: &PgPool, id: u64) -> Result<Self>
     {
         let db_report = sqlx::query_as!(DbReport, "SELECT * FROM reports WHERE id = $1", id as i64)
@@ -94,6 +103,7 @@ impl Report
         Ok(report)
     }
 
+    /// Loads all of the reports for a user in reverse chronological order from the database.
     pub async fn load_reports_for_user(db: &PgPool, guild: serenity::GuildId, user: serenity::UserId) -> Result<Vec<Self>>
     {
         let guild_id: i64 = guild.into();
@@ -106,6 +116,7 @@ impl Report
         Ok(reports)
     }
 
+    /// Batch deletes all of the reports belonging to a user in a server.
     pub async fn delete_user_reports(db: &PgPool, guild: serenity::GuildId, user: serenity::UserId) -> Result<()>
     {
         let guild_id: i64 = guild.into();
@@ -121,8 +132,11 @@ impl Report
 #[derive(Default, Getters, Clone, Copy)]
 pub struct UserStats
 {
+    /// The user's ID.
     user_id: serenity::UserId,
+    /// The guild ID.
     guild_id: serenity::GuildId,
+    /// The user's current role ID.
     #[getset(get = "pub")]
     role_id: serenity::RoleId,
     /// The highest word count the user has ever attained.
@@ -199,6 +213,7 @@ impl UserStats
         user_stat.transpose()
     }
 
+    /// Saves a user's stats to the database.
     pub async fn save(self, db: &PgPool) -> Result<()>
     {
         let guild_id: i64 = self.guild_id.into();

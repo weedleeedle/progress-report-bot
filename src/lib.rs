@@ -1,5 +1,8 @@
 #![deny(missing_docs)]
 
+//! Library for Presley, a bot for tracking a Discord server's word counts for their user's
+//! projects and assigning and removing ranks based on it.
+
 pub mod word_count;
 pub mod rank;
 pub mod mock;

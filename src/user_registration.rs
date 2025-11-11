@@ -9,10 +9,15 @@ use crate::{Context, rank::RankList, report::UserStats, word_count::WordCountArg
 /// to correctly set a user's rank and word count and stuff. 
 pub struct UserReportArgs<'a>
 {
+    /// The [crate::Context] passed along with the command.
     pub ctx: Context<'a>,
+    /// The [GuildId] the report command was called in
     pub guild_id: GuildId,
+    /// A reference to the [Member] who invoked the command.
     pub user: &'a Member,
+    /// A reference to the guild's [RankList].
     pub rank_list: &'a RankList,
+    /// The submitted word count.
     pub report_word_count: WordCountArgument,
 }
 

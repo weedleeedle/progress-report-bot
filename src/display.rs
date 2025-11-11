@@ -1,24 +1,44 @@
 //! This mod manages the appearance of the bot when rendering things like [Report]s
 
+use getset::Getters;
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::CreateEmbed;
 use poise::CreateReply;
 
 use crate::report::Report;
 
+/// A [ReportListInteractionHandler] is used for paginating a list of [Report]s.
+/// 
+/// More or less, it just takes ownership of all the context it needs and then moves off to its own
+/// thread via [Self::listen()] to handle the pagination.
+#[derive(Getters)]
 pub struct ReportListInteractionHandler
 {
-    ctx_id_string: String,
+    /// The unique id that identifies this command invocation.
+    /// Used to filter
+    // #[getset(get)]
+    // ctx_id_string: String,
+    /// ctx_id_string + "prev".
+    /// Just stored and used for comparing events.
+    #[getset(get)]
     prev_button_id: String,
+    /// ctx_id_string + "next".
+    /// Just stored and used for comparing events.
+    #[getset(get)]
     next_button_id: String,
+    /// The list of reports to paginate.
     report_list: Vec<Report>,
+    /// The number of reports per page
     reports_per_page: usize,
+    /// How many pages there are. Computed internally.
     num_pages: usize,
+    /// The current page we are on.
     current_page: usize,
 }
 
 impl ReportListInteractionHandler
 {
+    /// Creates a new [ReportListInteractionHandler].
     pub fn new(ctx: crate::Context<'_>, reports: Vec<Report>, reports_per_page: usize) -> Option<Self>
     {
         if reports.is_empty()
@@ -27,7 +47,7 @@ impl ReportListInteractionHandler
         }
 
         Some(Self {
-            ctx_id_string: ctx.id().to_string(),
+            //ctx_id_string: ctx.id().to_string(),
             prev_button_id: format!("{}prev", ctx.id()),
             next_button_id: format!("{}next", ctx.id()),
             num_pages: reports.chunks(reports_per_page).len(),
@@ -37,6 +57,8 @@ impl ReportListInteractionHandler
         })
     }
 
+    /// The "Event handler" for the [ReportListInteractionHandler].
+    /// Allows the handler to manage incoming events on its own thread and managing its own data.
     pub async fn listen(mut self, ctx: crate::Context<'_>) -> anyhow::Result<()>
     {
         while let Some(press) = serenity::collector::ComponentInteractionCollector::new(ctx)
@@ -65,21 +87,6 @@ impl ReportListInteractionHandler
             ).await?;
         }
         Ok(())
-    }
-
-    pub fn ctx_id(&self) -> &str
-    {
-        &self.ctx_id_string
-    }
-
-    pub fn prev_button_id(&self) -> &str
-    {
-        &self.prev_button_id
-    }
-    
-    pub fn next_button_id(&self) -> &str
-    {
-        &self.next_button_id
     }
 }
 

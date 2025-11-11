@@ -48,7 +48,9 @@ impl Display for DiscordRank<'_, serenity::Role>
 #[derive(Debug, Clone, Copy)]
 pub struct Rank
 {
+    /// The [RankId].
     pub rank_id: RankId,
+    /// The minimum_word_count required to obtain this rank.
     pub minimum_word_count: u32,
 }
 
@@ -90,6 +92,7 @@ impl Rank
             })
     }
 
+    /// Creates a new [Rank].
     pub fn new(guild_id: GuildId, role_id: RoleId, minimum_word_count: TotalWordCount) -> Self
     {
         Self {
@@ -156,6 +159,7 @@ pub struct RankId
 {
     //#[getset(get = "pub")]
     guild_id: serenity::GuildId,
+    /// The role associated with this rank
     #[getset(get = "pub")]
     role_id: serenity::RoleId,
 }
@@ -189,21 +193,28 @@ pub struct RankList
 }
 
 #[derive(Debug, Error)]
+/// Error type returned when adding a [Rank] to a [RankList].
 pub enum AddRankError
 {
+    /// Error thrown when attempting to add a new role with an existing word count.
     #[error("There already exists a rank {0:?} with that word count")]
     RankExistsWithWordCount(Rank),
 }
 
 #[derive(Debug, Error)]
+/// An [AddRankError] that stores a [serenity::Role] instead of a [Rank] for discord formatting.
 pub enum AddRankDiscordError
 {
+    /// Error thrown when attempting to add a new role with an existing word count.
     #[error("There already exists a role {0} with that word count")]
     RankExistsWithWordCount(serenity::Role)
 }
 
 impl AddRankError
 {
+    /// Converts an [AddRankError] into an [AddRankDiscordError].
+    ///
+    /// More or less the same but allows poise to pretty print/format the role.
     pub fn to_discord_error<G: GuildLike<serenity::Role>>(&self, get_role_object: &G) -> Option<AddRankDiscordError>
     {
         match self
@@ -258,6 +269,7 @@ impl RankList
         Ok(())
     }
 
+    /// Adds multiple ranks to this RankList.
     pub fn add_ranks(&mut self, ranks: &[Rank]) -> Result<(), AddRankError>
     {
         for rank in ranks
@@ -268,6 +280,8 @@ impl RankList
         Ok(())
     }
 
+    /// Removes a rank from this RankList.
+    ///
     /// Interestingly, we don't care about the minimum_word_count here.
     /// We just use the guild_id and role_id.
     pub fn remove_rank(&mut self, rank: Rank)
@@ -323,7 +337,6 @@ impl RankList
             let guild_id: i64 = rank.rank_id.guild_id.into();
             let role_id: i64 = rank.rank_id.role_id.into();
             let minimum_word_count: i32 = rank.minimum_word_count as i32;
-            println!("{}", minimum_word_count);
             sqlx::query!("INSERT INTO rank_table (guild_id, role_id, minimum_word_count) VALUES ($1, $2, $3) ON CONFLICT (guild_id, role_id) DO UPDATE SET minimum_word_count = excluded.minimum_word_count;", guild_id, role_id, minimum_word_count)
                 // Okay we don't actually need PgPool to be mutable. I... guess that makes sense?
                 // Idk.
@@ -374,6 +387,7 @@ impl RankList
         Ok(())
     }
 
+    /// Gets the list of ranks in ascending order by word count. 
     pub fn iter(&self) -> std::collections::btree_set::Iter<'_, Rank>
     {
         self.rank_order.iter()

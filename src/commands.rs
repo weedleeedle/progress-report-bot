@@ -44,6 +44,17 @@ pub fn get_commands() -> Vec<Command<crate::core::GlobalCommandData, Error>>
     return get_commands_inner();
 }
 
+/// get_commands() returns a static list of all functions to be registered 
+/// with the poise framework.
+/// if you add a command, it needs to be added in here.
+///
+/// If being ran in debug, the debug commands will be added 
+/// automatically.
+///
+/// Note that all commands have two generic types;
+/// The first is the external data/state that is included with all commands
+/// (see [GlobalCommandData]). The second is an error type,
+/// we use [anyhow::Error] as our generic error type across all commands.
 #[cfg(debug_assertions)]
 pub fn get_commands() -> Vec<Command<crate::core::GlobalCommandData, Error>>
 {

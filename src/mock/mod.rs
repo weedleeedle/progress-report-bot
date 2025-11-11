@@ -16,6 +16,7 @@ pub trait GuildLike<R: RoleLike>
     /// so references to [RoleLike] must last as long as the [GuildLike] being referenced.
     fn role(&self, role_id: serenity::RoleId) -> Option<&R>;
 
+    /// Gets the [GuildId] associated with this object.
     fn id(&self) -> serenity::GuildId;
 }
 
