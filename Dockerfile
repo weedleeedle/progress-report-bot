@@ -5,5 +5,5 @@ RUN cargo install sqlx-cli --no-default-features --features postgres
 WORKDIR /usr/src/presley
 COPY . .
 
-RUN cargo install --path . 
+RUN cargo install --profile release --path . 
 CMD ["presley-bot"]
