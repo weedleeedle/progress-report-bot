@@ -11,6 +11,7 @@ use anyhow::Result;
 
 /// This struct holds global data that is passed into every command.
 /// Essentially manages/passes in global state/data.
+#[derive(Debug)]
 pub struct GlobalCommandData {
     /// Reference to the database pool.
     /// Used for everything you'd do with a database.

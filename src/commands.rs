@@ -41,6 +41,7 @@ use crate::Context;
 #[cfg(not(debug_assertions))]
 pub fn get_commands() -> Vec<Command<crate::core::GlobalCommandData, Error>>
 {
+    log::info!("Running in release mode. Returning release commands");
     return get_commands_inner();
 }
 
@@ -62,6 +63,7 @@ pub fn get_commands() -> Vec<Command<crate::core::GlobalCommandData, Error>>
     // Add debug commands if in debug mode
     if cfg!(debug_assertions)
     {
+        log::info!("Running in debug mode. Adding debug commands");
         commands.append(&mut debug::get_debug_commands());
     }
     commands
@@ -71,6 +73,7 @@ fn get_commands_inner() -> Vec<Command<crate::core::GlobalCommandData, Error>>
 {
     // Release commands go here
     let commands = vec![set_rank(), list_ranks(), clear_ranks(), report(), reporpt(), list_reports(), clear_reports(), list_stats()];
+    log::debug!("get_commands_inner commands: {:?}", commands);
     commands
 }
 
@@ -83,20 +86,30 @@ async fn set_rank(ctx: Context<'_>,
         minimum_word_count: u32
     ) -> Result<()>
 {
+    log::info!("Running set_rank command");
+    log::debug!("role: {}", role);
+    log::debug!("minimum_word_count: {}", minimum_word_count);
     let minimum_word_count = TotalWordCount::from(minimum_word_count);
+    log::trace!("Converted minimum_word_count to TotalWordCount: {:?}", minimum_word_count);
     let pool = ctx.data().get_pool();
     let guild_id = ctx.guild_id().ok_or(anyhow!("This command can only be run in a server!"))?;
+    log::trace!("Guild ID: {}", guild_id);
 
     let mut ranks = RankList::load(pool, guild_id).await?;
+    log::debug!("Existing ranks: {:?}", ranks); 
 
     let new_rank = Rank::new(guild_id, role.id, minimum_word_count);
+    log::debug!("New rank: {:?}", new_rank);
     let result = ranks.add_rank(new_rank);
     if let Err(err) = result
     {
         let guild = ctx.partial_guild().await.unwrap();
         let discord_error = err.to_discord_error(&guild).expect("Unable to get the role from the guild");
+        log::warn!("Unable to add rank: {}", discord_error);
         return Err(discord_error.into())
     }
+
+    log::info!("Added new rank {:?} successfully", new_rank);
     ranks.save(pool).await?;
 
     ctx.say(format!("Added rank {}!", role)).await?;
@@ -107,24 +120,31 @@ async fn set_rank(ctx: Context<'_>,
 #[poise::command(slash_command, guild_only)]
 async fn list_ranks(ctx: Context<'_>) -> Result<()>
 {
+    log::info!("Running list_ranks command");
     let pool = ctx.data().get_pool();
     let guild_id = ctx.guild_id().ok_or(anyhow!("This command can only be run in a server!"))?;
 
     let ranks = RankList::load(pool, guild_id).await?;
+    log::debug!("Ranks: {:?}", ranks);
     let guild = ctx.partial_guild().await.unwrap();
 
     let mut response = String::new();
     let ranks: Vec<DiscordRank<Role>> = ranks.iter().map(|x| x.to_rank(&guild).unwrap()).collect();
 
+    log::trace!("Iterating over ranks");
     for rank in ranks
     {
+        log::trace!("Rank: {}", rank);
         response.push_str(&format!("{}", rank));
     }
 
     if response.is_empty()
     {
+        log::warn!("No ranks exist yet!");
         response.push_str("No ranks. Make some with /set_rank!");
     }
+
+    log::debug!("Formatted response: {}", response);
 
     ctx.say(response).await?;
     Ok(())
@@ -134,6 +154,7 @@ async fn list_ranks(ctx: Context<'_>) -> Result<()>
 #[poise::command(slash_command, guild_only, default_member_permissions = "ADMINISTRATOR")]
 async fn clear_ranks(ctx: Context<'_>) -> Result<()>
 {
+    log::info!("Running clear_ranks");
     let guild_id = ctx.guild_id().ok_or(anyhow!("This command can only be run in a server!"))?;
     let pool = ctx.data().get_pool();
     RankList::clear_all_ranks(pool, guild_id).await?;
@@ -154,6 +175,7 @@ async fn report(ctx: Context<'_>,
     #[description = "An optional comment to include with your report"]
     comment: Option<String>) -> Result<()>
 {
+    log::trace!("Run report command");
     report_inner(ctx, word_count, comment).await
 }
 
@@ -165,18 +187,35 @@ async fn reporpt(ctx: Context<'_>,
     #[description = "An optional comment to include with your reporpt"]
     comment: Option<String>) -> Result<()>
 {
+    log::trace!("Run reporpt [sic] command");
     report_inner(ctx, word_count, comment).await
 }
 
 async fn report_inner(ctx: Context<'_>, word_count: String, comment: Option<String>) -> Result<()>
 {
+    log::debug!("Running report_inner command");
+    log::trace!("word_count: {}", word_count);
+    log::trace!("comment: {:?}", comment);
     let guild_id = ctx.guild_id().ok_or(anyhow!("This command can only be run in a server!"))?;
     let user_id = ctx.author().id;
+    log::debug!("User ID: {}", user_id);
     let db = ctx.data().get_pool();
     let word_count = WordCountArgument::from_str(&word_count)?;
+    log::debug!("Word count: {:?}", word_count);
 
     let rank_list = RankList::load(db, guild_id).await?;
+    log::debug!("Rank list: {:?}", rank_list);
     let user_stats = UserStats::load(db, guild_id, user_id).await?;
+    log::debug!("User stats: {:?}", user_stats);
+    log::info!("Checking if user exists already:");
+    if user_stats.is_none()
+    {
+        log::info!("First-time user reporting.");
+    }
+    else
+    {
+        log::info!("Pre-existing user reporting.")
+    }
 
     let user = ctx.author_member().await.expect("We know this is being run in a guild, so we don't have to handle this.");
     // Update and save the user's overall stats

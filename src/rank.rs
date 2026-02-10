@@ -178,7 +178,7 @@ struct DbRankId
 /// Ideally a rank list should start with one rank at 0, but I don't think I will actually enforce that.
 /// What *will* be enforced is that you can only have a RankList with at LEAST one rank.
 /// This makes ops like [get_rank_for_word_count] infallible.
-#[derive(Getters)]
+#[derive(Getters, Debug)]
 pub struct RankList
 {
     // GuildId can be None only if we haven't added any ranks yet.

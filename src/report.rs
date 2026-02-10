@@ -129,7 +129,7 @@ impl Report
 }
 
 /// User's stored overall stats
-#[derive(Default, Getters, Clone, Copy)]
+#[derive(Default, Getters, Clone, Copy, Debug)]
 pub struct UserStats
 {
     /// The user's ID.
@@ -156,10 +156,13 @@ impl UserStats
     /// Returns [None] if the user is the same rank.
     pub fn update_word_count(&mut self, rank_list: &RankList, word_count: WordCountArgument) -> Option<serenity::RoleId>
     {
+        log::trace!("Entering UserStats::update_word_count");
         let total_word_count: TotalWordCount = word_count.convert_to_total(self.current_word_count);
+        log::debug!("User's total word count: {:?}", total_word_count);
         self.current_word_count = total_word_count.word_count();
         // Maximize total word count
         self.max_word_count = self.max_word_count.max(self.current_word_count);
+        log::trace!("Exiting UserStats::update_word_count");
         self.update_rank(rank_list)
     }
 
@@ -169,19 +172,26 @@ impl UserStats
     /// Returns [None] if the user is the same rank.
     fn update_rank(&mut self, rank_list: &RankList) -> Option<serenity::RoleId>
     {
+        log::trace!("Entering UserStats::update_rank");
         // Originally we updated a user's rank based on max word count, but we actually want to
         // update it based on current word count. 
         // We'll keep tracking max_word_count for posterity though.
         let rank = rank_list.get_rank_for_word_count(self.current_word_count);
+        log::debug!("New rank: {:?}", rank);
         let new_role_id = *rank.rank_id.role_id();
         if new_role_id != self.role_id
         {
+            log::debug!("User moved into new rank");
             let old_role_id = self.role_id;
+            log::debug!("Old rank: {:?}", old_role_id);
             self.role_id = new_role_id;
+            log::trace!("Exiting UserStats::update_rank");
             Some(old_role_id)
         }
         else
         {
+            log::debug!("User did not move into new rank");
+            log::trace!("Exiting UserStats::update_rank");
             None
         }
     }
@@ -189,8 +199,14 @@ impl UserStats
     /// Constructs a new user stat with a word count of 0.
     pub fn new(guild_id: serenity::GuildId, user_id: serenity::UserId, rank_list: &RankList) -> Self
     {
+        log::trace!("Entering UserStats::new");
+        log::debug!("guild_id: {:?}", guild_id);
+        log::debug!("user_id: {:?}", user_id);
+        log::debug!("rank_list: {:?}", rank_list);
         const NEW_USER_WORD_COUNT: u32 = 0;
         let rank = rank_list.get_rank_for_word_count(NEW_USER_WORD_COUNT);
+        log::debug!("Rank for user with word count 0: {:?}", rank);
+        log::trace!("Exiting UserStats::new");
         Self {
             guild_id,
             user_id,
@@ -296,14 +312,14 @@ mod tests
         };
         let mut new_user = UserStats::new(guild_id, user_id, &rank_list);
         let updated = new_user.update_word_count(&rank_list, WordCountArgument::Total(100));
-        assert!(updated);
+        assert!(updated.is_some());
         assert_eq!(new_user.role_id, *rank_2.rank_id.role_id());
         assert_eq!(new_user.max_word_count, 100);
         assert_eq!(new_user.current_word_count, 100);
     }
 
     #[test]
-    pub fn test_update_rank_subtract_word_count_doesnt_revert_role_id()
+    pub fn test_update_rank_subtract_word_count_does_revert_role_id()
     {
         let guild_id = serenity::GuildId::new(1);
         let user_id = serenity::UserId::new(1);
@@ -321,8 +337,8 @@ mod tests
         let mut new_user = UserStats::new(guild_id, user_id, &rank_list);
         new_user.update_word_count(&rank_list, WordCountArgument::Total(100));
         let updated = new_user.update_word_count(&rank_list, WordCountArgument::Relative(-30));
-        assert!(!updated);
-        assert_eq!(new_user.role_id, *rank_2.rank_id.role_id());
+        assert!(updated.is_some());
+        assert_eq!(new_user.role_id, *rank.rank_id.role_id());
         assert_eq!(new_user.max_word_count, 100);
         assert_eq!(new_user.current_word_count, 70);
     }

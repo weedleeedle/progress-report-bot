@@ -81,7 +81,7 @@ impl WordCountArgument
 }
 
 /// Represents a project's/user's total word count.
-#[derive(From, Into)]
+#[derive(From, Into, Debug)]
 pub struct TotalWordCount(u32);
 
 impl TotalWordCount

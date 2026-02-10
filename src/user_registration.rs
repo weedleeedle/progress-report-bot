@@ -7,6 +7,7 @@ use crate::{Context, rank::RankList, report::UserStats, word_count::WordCountArg
 
 /// Context/data needed for [update_or_assign_user_rank()]
 /// to correctly set a user's rank and word count and stuff. 
+#[derive(Debug)]
 pub struct UserReportArgs<'a>
 {
     /// The [crate::Context] passed along with the command.
@@ -47,18 +48,25 @@ pub enum UpdateOrAssignUserRankReturnStatus
 /// In any of these cases, this function consumes an [Option<UserStats>].
 pub async fn update_or_assign_user_rank(args: &UserReportArgs<'_>, user_stats: Option<UserStats>) -> anyhow::Result<(UserStats, UpdateOrAssignUserRankReturnStatus)>
 {
+    log::trace!("Entering update_or_assign_user_rank");
+    log::debug!("Args: {:?}", args);
     match user_stats
     {
         // User is an already registered/existing user
         Some(mut user_stats) => {
+            log::debug!("User already exists.");
             let old_role_id = user_stats.update_word_count(args.rank_list, args.report_word_count);
             match old_role_id
             {
                 // The user's word count did not bump them into a new rank.
-                None => Ok((user_stats, UpdateOrAssignUserRankReturnStatus::ReportNotUpdateUserRank)),
+                None => {
+                    log::debug!("Updated word count. User kept the same rank.");
+                    Ok((user_stats, UpdateOrAssignUserRankReturnStatus::ReportNotUpdateUserRank)),
+                }
                 // The user's word count did push them into a new rank.
                 Some(old_role_id) => 
                 {
+                    log::debug!("Updated word count. User has a new rank.");
                     // user_stats.role_id() actually gives you the NEW role id, not the old one.
                     // This is similar to how insert works in HashMaps and similar.
                     update_existing_user_rank(args.ctx, args.user, old_role_id, *user_stats.role_id()).await?;
@@ -68,6 +76,7 @@ pub async fn update_or_assign_user_rank(args: &UserReportArgs<'_>, user_stats: O
         }
         // This is a new user. We want to assign them a rank no matter what.
         None => {
+            log::debug!("User is a new user");
             // Creates a new user with a word count of 0
             let mut new_user_stats = UserStats::new(args.guild_id, args.user.user.id, args.rank_list);
             _ = new_user_stats.update_word_count(args.rank_list, args.report_word_count);
@@ -81,14 +90,22 @@ pub async fn update_or_assign_user_rank(args: &UserReportArgs<'_>, user_stats: O
 /// Assigns a new [rank]/role to a user.
 async fn add_new_user_rank(ctx: Context<'_>, user: &Member, role: RoleId) -> anyhow::Result<()>
 {
+    log::trace!("Entering add_new_user_rank");
+    log::debug!("Adding a new rank to a user");
     user.add_role(ctx, role).await?;
+    log::trace!("Exiting add_new_user_rank");
     Ok(())
 }
 
 /// Removes a user's old rank, assigns them a new rank
 async fn update_existing_user_rank(ctx: Context<'_>, user: &Member, old_role: RoleId, new_role: RoleId) -> anyhow::Result<()>
 {
+    log::trace!("Entering update_existing_user_rank")
+    log::debug!("Updating user rank!");
+    log::debug!("Adding new role {:?}", new_role);
     user.add_role(ctx, new_role).await?;
+    log::debug!("Removing old role {:?}", old_role);
     user.remove_role(ctx, old_role).await?;
+    log::trace!("Exiting update_existing_user_rank")
     Ok(())
 }
