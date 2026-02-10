@@ -61,8 +61,8 @@ pub async fn update_or_assign_user_rank(args: &UserReportArgs<'_>, user_stats: O
                 // The user's word count did not bump them into a new rank.
                 None => {
                     log::debug!("Updated word count. User kept the same rank.");
-                    Ok((user_stats, UpdateOrAssignUserRankReturnStatus::ReportNotUpdateUserRank)),
-                }
+                    Ok((user_stats, UpdateOrAssignUserRankReturnStatus::ReportNotUpdateUserRank))
+                },
                 // The user's word count did push them into a new rank.
                 Some(old_role_id) => 
                 {
@@ -100,12 +100,12 @@ async fn add_new_user_rank(ctx: Context<'_>, user: &Member, role: RoleId) -> any
 /// Removes a user's old rank, assigns them a new rank
 async fn update_existing_user_rank(ctx: Context<'_>, user: &Member, old_role: RoleId, new_role: RoleId) -> anyhow::Result<()>
 {
-    log::trace!("Entering update_existing_user_rank")
+    log::trace!("Entering update_existing_user_rank");
     log::debug!("Updating user rank!");
     log::debug!("Adding new role {:?}", new_role);
     user.add_role(ctx, new_role).await?;
     log::debug!("Removing old role {:?}", old_role);
     user.remove_role(ctx, old_role).await?;
-    log::trace!("Exiting update_existing_user_rank")
+    log::trace!("Exiting update_existing_user_rank");
     Ok(())
 }

@@ -58,8 +58,8 @@ impl WordCountArgument
     /// # Examples
     ///
     /// ```
-    /// # use progress_report_bot::word_count::WordCountArgument;
-    /// # use progress_report_bot::word_count::TotalWordCount;
+    /// # use presley_bot::word_count::WordCountArgument;
+    /// # use presley_bot::word_count::TotalWordCount;
     /// let relative_word_count = WordCountArgument::Relative(100);
     /// let total_word_count = relative_word_count.convert_to_total(50);
     /// assert_eq!(total_word_count.word_count(), 150);

@@ -3,6 +3,8 @@
 //! Global command data includes things like the Discord client,
 //! the scheduler, and the database donnection pool.
 
+use std::fmt::Debug;
+
 use getset::Getters;
 use getset::CopyGetters;
 use sqlx::{PgPool, postgres::PgPoolOptions};
@@ -55,10 +57,10 @@ impl GlobalCommandData
 ///
 /// Expected use case is something like the following:
 /// ```no_run
-/// # use progress_report_bot::core::GlobalCommandDataBuilder;
+/// # use presley_bot::core::GlobalCommandDataBuilder;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), anyhow::Error> {
-/// let builder = GlobalCommandDataBuilder::new();
+/// let builder = GlobalCommandDataBuilder::default();
 /// let global_command_data = builder
 ///     .max_connections(5)
 ///     .database_url("postgres://user:password@localhost/test".to_string())
@@ -150,6 +152,14 @@ pub struct Variables {
     database_url: String,
 }
 
+impl Debug for Variables
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Hide the discord token just in case, idk.
+        f.debug_struct("Variables").field("token", &"######").field("max_connections", &self.max_connections).field("database_url", &self.database_url).finish()
+    }
+}
+
 /// Loading variables can fail for two reasons:
 /// - A required environment variable wasn't found.
 /// - An environment variable was found but was in the wrong format (i.e MAX_CONNECTIONS not being a u32)
@@ -182,8 +192,8 @@ impl Variables
     /// # Examples
     ///
     /// ```
-    /// # use progress_report_bot::core::Variables;
-    /// # use progress_report_bot::core::LoadVariablesError;
+    /// # use presley_bot::core::Variables;
+    /// # use presley_bot::core::LoadVariablesError;
     /// # dotenvy::dotenv();
     /// let variables = Variables::load_variables()?;
     /// # Ok::<(), LoadVariablesError>(())
